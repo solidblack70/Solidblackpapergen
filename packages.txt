@@ -1,1 +1,1 @@
-pandox
+pandoc
