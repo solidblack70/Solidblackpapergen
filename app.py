@@ -95,20 +95,20 @@ def set_formatting_and_margins(docx_filename, font_size, font_name):
         text = paragraph.text.strip()
         if not text: continue
         
-        # પ્રશ્ન માટેનું સેટિંગ
+        # પ્રશ્ન માટેનું સેટિંગ - (અહીં 0.25 ની જગ્યાએ 0.35 ઇંચ સેટ કર્યું છે)
         if re.match(r'^Q\.\d+', text):
-            paragraph.paragraph_format.left_indent = Inches(0.25)
-            paragraph.paragraph_format.first_line_indent = Inches(-0.25)
+            paragraph.paragraph_format.left_indent = Inches(0.35)
+            paragraph.paragraph_format.first_line_indent = Inches(-0.35)
             paragraph.paragraph_format.space_before = Pt(6)
             paragraph.paragraph_format.space_after = Pt(2) 
             paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             
             paragraph.paragraph_format.tab_stops.clear_all()
-            paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.25), WD_TAB_ALIGNMENT.LEFT)
+            paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.35), WD_TAB_ALIGNMENT.LEFT)
             
-        # ઓપ્શન માટેનું સેટિંગ
+        # ઓપ્શન માટેનું સેટિંગ - (અહીં પણ 0.35 ઇંચ સેટ કર્યું છે જેથી પ્રશ્ન સાથે અલાઈન થાય)
         elif re.match(r'^\(?[A-D][\)\.]', text):
-            paragraph.paragraph_format.left_indent = Inches(0.25)
+            paragraph.paragraph_format.left_indent = Inches(0.35)
             paragraph.paragraph_format.first_line_indent = Inches(0)
             paragraph.paragraph_format.space_before = Pt(0)
             paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
@@ -182,7 +182,6 @@ def format_content(raw_text):
     labels = ['A', 'B', 'C', 'D']
     
     for q_block in questions:
-        # મેં અહીં સુધારો કર્યો છે, જેથી A), A. અથવા (A) કોઈ પણ ફોર્મેટ ઓળખી લે.
         opt_pattern = r'\s*\(?[1-4A-Da-d][\)\.]\s*(.*?)(?=\s+\(?[1-4A-Da-d][\)\.]|$)'
         matches = list(re.finditer(opt_pattern, q_block, flags=re.DOTALL))
         
