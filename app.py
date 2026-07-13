@@ -101,7 +101,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name):
             paragraph.paragraph_format.first_line_indent = Inches(-0.25)
             paragraph.paragraph_format.space_before = Pt(6)
             paragraph.paragraph_format.space_after = Pt(2) 
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY # જસ્ટિફાઈડ સેટિંગ ઉમેર્યું
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             
             paragraph.paragraph_format.tab_stops.clear_all()
             paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.25), WD_TAB_ALIGNMENT.LEFT)
@@ -111,7 +111,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name):
             paragraph.paragraph_format.left_indent = Inches(0.25)
             paragraph.paragraph_format.first_line_indent = Inches(0)
             paragraph.paragraph_format.space_before = Pt(0)
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY # જસ્ટિફાઈડ સેટિંગ ઉમેર્યું
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             
             is_last_option = True
             for j in range(i + 1, len(paragraphs)):
@@ -135,7 +135,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name):
         else:
             paragraph.paragraph_format.space_before = Pt(2)
             paragraph.paragraph_format.space_after = Pt(2)
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY # જસ્ટિફાઈડ સેટિંગ ઉમેર્યું
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             
         for run in paragraph.runs:
             run.font.size = Pt(font_size)
@@ -182,7 +182,8 @@ def format_content(raw_text):
     labels = ['A', 'B', 'C', 'D']
     
     for q_block in questions:
-        opt_pattern = r'\([1-4A-Da-d]\)\s*(.*?)(?=\([1-4A-Da-d]\)|$)'
+        # મેં અહીં સુધારો કર્યો છે, જેથી A), A. અથવા (A) કોઈ પણ ફોર્મેટ ઓળખી લે.
+        opt_pattern = r'\s*\(?[1-4A-Da-d][\)\.]\s*(.*?)(?=\s+\(?[1-4A-Da-d][\)\.]|$)'
         matches = list(re.finditer(opt_pattern, q_block, flags=re.DOTALL))
         
         if len(matches) >= 4:
