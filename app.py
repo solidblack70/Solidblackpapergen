@@ -95,7 +95,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name):
         text = paragraph.text.strip()
         if not text: continue
         
-        # પ્રશ્ન માટેનું સેટિંગ - (અહીં 0.25 ની જગ્યાએ 0.35 ઇંચ સેટ કર્યું છે)
+        # પ્રશ્ન માટેનું સેટિંગ - (0.35 ઇંચ સેટ કર્યું છે)
         if re.match(r'^Q\.\d+', text):
             paragraph.paragraph_format.left_indent = Inches(0.35)
             paragraph.paragraph_format.first_line_indent = Inches(-0.35)
@@ -106,7 +106,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name):
             paragraph.paragraph_format.tab_stops.clear_all()
             paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.35), WD_TAB_ALIGNMENT.LEFT)
             
-        # ઓપ્શન માટેનું સેટિંગ - (અહીં પણ 0.35 ઇંચ સેટ કર્યું છે જેથી પ્રશ્ન સાથે અલાઈન થાય)
+        # ઓપ્શન માટેનું સેટિંગ - (0.35 ઇંચ સેટ કર્યું છે)
         elif re.match(r'^\(?[A-D][\)\.]', text):
             paragraph.paragraph_format.left_indent = Inches(0.35)
             paragraph.paragraph_format.first_line_indent = Inches(0)
@@ -228,7 +228,8 @@ def format_content(raw_text):
 col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
 with col_logo2:
     try:
-        st.image("26242.png", use_container_width=True)
+        # લોગો ફાઇલનું નામ બદલીને logo.png કર્યું છે 
+        st.image("logo.png", use_container_width=True)
     except Exception:
         pass # જો લોગો ન મળે તો એરર નહિ બતાવે, સાઈટ ચાલુ રહેશે
 
@@ -269,3 +270,7 @@ if st.button("વર્ડ ફાઇલ જનરેટ કરો"):
                 st.error(f"Error: {e}")
     else:
         st.warning("કૃપા કરીને પ્રશ્નો પેસ્ટ કરો.")
+
+# --- 5. Footer (Credit Line) ---
+st.markdown("<br><hr>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #555555; font-size: 16px;'>Made by <b>Yug Ghanshyam Padmani</b></p>", unsafe_allow_html=True)
