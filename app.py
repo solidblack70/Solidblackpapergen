@@ -2,7 +2,7 @@ import streamlit as st
 import subprocess
 import re
 from docx import Document
-from docx.shared import Inches, Pt
+from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_TAB_ALIGNMENT, WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
@@ -58,22 +58,55 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# --- નવું ફંક્શન: 1 કોલમ અને 2 કોલમ વચ્ચે જગ્યા પાડવા માટે ---
+def add_continuous_section_break(paragraph, num_cols):
+    pPr = paragraph._element.get_or_add_pPr()
+    
+    # જો પહેલાથી કોઈ સેક્શન હોય તો તેને હટાવો
+    existing_sectPr = pPr.find(qn('w:sectPr'))
+    if existing_sectPr is not None:
+        pPr.remove(existing_sectPr)
+        
+    sectPr = OxmlElement('w:sectPr')
+    
+    type_el = OxmlElement('w:type')
+    type_el.set(qn('w:val'), 'continuous')
+    sectPr.append(type_el)
+    
+    cols_el = OxmlElement('w:cols')
+    cols_el.set(qn('w:num'), str(num_cols))
+    cols_el.set(qn('w:space'), '720')
+    if num_cols == 2:
+        cols_el.set(qn('w:sep'), '1')
+    sectPr.append(cols_el)
+    
+    # પેજ માર્જિન સમાન રાખવા
+    margin = OxmlElement('w:pgMar')
+    margin.set(qn('w:top'), '720')
+    margin.set(qn('w:bottom'), '720')
+    margin.set(qn('w:left'), '720')
+    margin.set(qn('w:right'), '720')
+    sectPr.append(margin)
+    
+    pPr.append(sectPr)
+
 # --- 2. વર્ડ ફાઈલનું ફોર્મેટિંગ અને અલાઈનમેન્ટ ---
 def set_formatting_and_margins(docx_filename, font_size, font_name):
     doc = Document(docx_filename)
-    section = doc.sections[0]
     
-    section.top_margin = Inches(0.5)
-    section.bottom_margin = Inches(0.5)
-    section.left_margin = Inches(0.5)
-    section.right_margin = Inches(0.5)
-    
-    sectPr = section._sectPr
-    cols = sectPr.find(qn('w:cols')) or OxmlElement('w:cols')
-    if cols not in sectPr: sectPr.append(cols)
-    cols.set(qn('w:num'), '2')       
-    cols.set(qn('w:space'), '720')   
-    cols.set(qn('w:sep'), '1')       
+    # આખા ડોક્યુમેન્ટને બાય-ડિફોલ્ટ 2 કોલમમાં સેટ કરો
+    for section in doc.sections:
+        section.top_margin = Inches(0.5)
+        section.bottom_margin = Inches(0.5)
+        section.left_margin = Inches(0.5)
+        section.right_margin = Inches(0.5)
+        
+        sectPr = section._sectPr
+        cols = sectPr.find(qn('w:cols')) or OxmlElement('w:cols')
+        if cols not in sectPr: sectPr.append(cols)
+        cols.set(qn('w:num'), '2')       
+        cols.set(qn('w:space'), '720')   
+        cols.set(qn('w:sep'), '1')       
     
     # વધારાની ખાલી જગ્યા (Empty Paragraphs) રિમૂવર
     for paragraph in list(doc.paragraphs):
@@ -95,6 +128,50 @@ def set_formatting_and_margins(docx_filename, font_size, font_name):
         text = paragraph.text.strip()
         if not text: continue
         
+        # --- નવું: ટાઇટલ / સૂચના (1 Column + Blue Theme) નું સેટિંગ ---
+        if paragraph.style.name.startswith('Heading') or text.startswith('#'):
+            # ટાઇટલ પહેલાના ભાગને 2 કોલમમાં પૂરો કરો
+            if i > 0:
+                add_continuous_section_break(paragraphs[i-1], 2)
+            
+            # આ ટાઇટલને 1 સળંગ કોલમ (Full Width) બનાવો
+            add_continuous_section_break(paragraph, 1)
+            
+            # ટાઇટલનું ફોર્મેટિંગ (સેન્ટર, સ્પેસ)
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            paragraph.paragraph_format.space_before = Pt(12)
+            paragraph.paragraph_format.space_after = Pt(12)
+            
+            # ડાર્ક બ્લુ બેકગ્રાઉન્ડ સેટ કરવા
+            pPr = paragraph._element.get_or_add_pPr()
+            shd = OxmlElement('w:shd')
+            shd.set(qn('w:val'), 'clear')
+            shd.set(qn('w:color'), 'auto')
+            shd.set(qn('w:fill'), '1F4E79') # પ્રીમિયમ ડાર્ક બ્લુ કલર
+            pPr.append(shd)
+            
+            # અક્ષરો સફેદ અને બોલ્ડ કરવા
+            for run in paragraph.runs:
+                if run.text.startswith('#'): 
+                    run.text = run.text.replace('#', '').strip()
+                    
+                run.font.color.rgb = RGBColor(255, 255, 255)
+                run.font.bold = True
+                run.font.size = Pt(font_size + 4) # ટાઇટલ સહેજ મોટું દેખાય
+                run.font.name = font_name
+                
+                r = run._element
+                rPr = r.get_or_add_rPr()
+                rFonts = rPr.find(qn('w:rFonts'))
+                if rFonts is None:
+                    rFonts = OxmlElement('w:rFonts')
+                    rPr.append(rFonts)
+                rFonts.set(qn('w:ascii'), font_name)
+                rFonts.set(qn('w:hAnsi'), font_name)
+                rFonts.set(qn('w:cs'), font_name)
+                
+            continue
+
         # પ્રશ્ન માટેનું સેટિંગ - (0.35 ઇંચ અને Justified)
         if re.match(r'^Q\.\d+', text):
             paragraph.paragraph_format.left_indent = Inches(0.35)
@@ -165,7 +242,14 @@ def format_content(raw_text):
     
     for line in lines:
         if not line.strip(): continue
-        if re.match(q_start_pattern, line):
+        
+        # જો યુઝર # થી ટાઇટલ નાખે છે
+        if line.strip().startswith('#'):
+            if current_q:
+                questions.append("\n".join(current_q))
+            questions.append(line.strip())
+            current_q = []
+        elif re.match(q_start_pattern, line):
             if current_q:
                 questions.append("\n".join(current_q))
             current_q = [line]
@@ -182,6 +266,10 @@ def format_content(raw_text):
     labels = ['A', 'B', 'C', 'D']
     
     for q_block in questions:
+        if q_block.startswith('#'):
+            formatted_md += f"{q_block}\n\n"
+            continue
+            
         opt_pattern = r'\s*\(?[1-4A-Da-d][\)\.]\s*(.*?)(?=\s+\(?[1-4A-Da-d][\)\.]|$)'
         matches = list(re.finditer(opt_pattern, q_block, flags=re.DOTALL))
         
@@ -246,8 +334,8 @@ with col2:
 with col3:
     font_name = st.selectbox("પેપરનો ફોન્ટ (Font):", ["Hind Vadodara", "Shruti", "Cambria Math", "Noto Serif", "Times New Roman", "Calibri", "Arial"])
 
-# પ્રશ્નો નાખવાનું બોક્સ
-user_input = st.text_area("અહીં પ્રશ્નો પેસ્ટ કરો (દરેક પ્રશ્ન વચ્ચે 1 ખાલી લાઈન હોવી જરૂરી છે):", height=280)
+# પ્રશ્નો નાખવાનું બોક્સ (સૂચના અપડેટ કરી છે)
+user_input = st.text_area("અહીં પ્રશ્નો પેસ્ટ કરો (ટાઇટલ/સૂચના મૂકવા તેની આગળ # લખો, દા.ત. # Section 2):", height=280)
 
 # ફાઈલ જનરેટ કરવાનું પ્રોસેસિંગ
 if st.button("વર્ડ ફાઇલ જનરેટ કરો"):
