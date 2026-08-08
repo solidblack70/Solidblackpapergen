@@ -5,21 +5,20 @@ from docx import Document
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_TAB_ALIGNMENT, WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
-from docx.oxml import OxmlElement
+from docx.oxml import OxmlElement, parse_xml
+import os
 
-# --- 1. Page Config & Custom CSS (Premium UI) ---
+# --- 1. Page Config & Custom CSS ---
 st.set_page_config(page_title="Solid Black | Paper Generator", layout="wide", page_icon="📝")
 
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Hind+Vadodara:wght@400;600;700&display=swap');
     
-    /* આખી સાઇટમાં Hind Vadodara ફોન્ટ */
     html, body, [class*="css"], .stTextInput>label, .stSelectbox>label, .stNumberInput>label, .stTextArea>label, p, h1, h2, h3, h4, h5, h6, span {
         font-family: 'Hind Vadodara', sans-serif !important;
     }
     
-    /* મેઈન ટાઈટલ અને ટેક્સ્ટ સ્ટાઈલિંગ */
     .main-title {
         text-align: center;
         font-weight: 700;
@@ -29,7 +28,6 @@ st.markdown("""
         color: #111111;
     }
     
-    /* જનરેટ બટન માટે પ્રીમિયમ બ્લેક એન્ડ વ્હાઇટ હોવર ઇફેક્ટ */
     div.stButton > button:first-child {
         background-color: #000000;
         color: #ffffff;
@@ -49,7 +47,6 @@ st.markdown("""
         box-shadow: 0px 6px 12px rgba(0,0,0,0.2);
     }
     
-    /* ટેક્સ્ટ એરિયા અને ઇનપુટ બોક્સ બોર્ડર */
     .stTextArea textarea {
         border-radius: 6px !important;
         border: 1px solid #444 !important;
@@ -76,38 +73,28 @@ def add_continuous_section_break(paragraph, num_cols):
     if num_cols == 2:
         cols_el.set(qn('w:sep'), '1')
     sectPr.append(cols_el)
-    
-    margin = OxmlElement('w:pgMar')
-    margin.set(qn('w:top'), '720')
-    margin.set(qn('w:bottom'), '720')
-    margin.set(qn('w:left'), '720')
-    margin.set(qn('w:right'), '720')
-    sectPr.append(margin)
-    
     pPr.append(sectPr)
 
-# --- નવું: 3 કોલમ હેડર ડિઝાઇન ---
+# --- 3 કોલમ હેડર ડિઝાઇન ---
 def insert_header_table(doc, header_left, header_center, font_name):
     table = doc.add_table(rows=1, cols=3)
     table.autofit = False
     
-    # ટેબલને ડોક્યુમેન્ટની એકદમ શરૂઆતમાં ખસેડો
     first_para = doc.paragraphs[0]._p
     first_para.addprevious(table._tbl)
     
-    # કોલમની સાઇઝ (અંદાજિત)
     table.columns[0].width = Inches(2.0)
     table.columns[1].width = Inches(3.5)
     table.columns[2].width = Inches(1.5)
     
-    # -- 1. ડાબી બાજુ (નાનો લોગો + ગ્રે બોક્સ) --
+    # 1. ડાબી બાજુ
     left_cell = table.cell(0, 0)
     p_logo_left = left_cell.paragraphs[0]
     p_logo_left.alignment = WD_ALIGN_PARAGRAPH.CENTER
     try:
-        p_logo_left.add_run().add_picture('logo.png', width=Inches(1.5))
+        p_logo_left.add_run().add_picture('small_logo.png', width=Inches(1.5))
     except:
-        p_logo_left.add_run("[Small Logo]").bold = True
+        pass
         
     p_gray = left_cell.add_paragraph()
     p_gray.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -115,7 +102,7 @@ def insert_header_table(doc, header_left, header_center, font_name):
     shd = OxmlElement('w:shd')
     shd.set(qn('w:val'), 'clear')
     shd.set(qn('w:color'), 'auto')
-    shd.set(qn('w:fill'), 'D9D9D9') # ગ્રે કલર
+    shd.set(qn('w:fill'), 'D9D9D9')
     pPr.append(shd)
     
     run_gray = p_gray.add_run(header_left)
@@ -123,7 +110,7 @@ def insert_header_table(doc, header_left, header_center, font_name):
     run_gray.font.bold = True
     run_gray.font.size = Pt(12)
     
-    # -- 2. વચ્ચેનો ભાગ (મેઈન ટાઇટલ) --
+    # 2. વચ્ચેનો ભાગ
     center_cell = table.cell(0, 1)
     p_center = center_cell.paragraphs[0]
     p_center.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -136,31 +123,62 @@ def insert_header_table(doc, header_left, header_center, font_name):
         if i < len(lines) - 1:
             p_center.add_run('\n')
             
-    # -- 3. જમણી બાજુ (મોટો ગોળ લોગો) --
+    # 3. જમણી બાજુ
     right_cell = table.cell(0, 2)
     p_right = right_cell.paragraphs[0]
     p_right.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     try:
-        p_right.add_run().add_picture('Asset 345@4x-8.png', width=Inches(1.2))
+        p_right.add_run().add_picture('round_logo.png', width=Inches(1.2))
     except:
-        p_right.add_run("[Round Logo]").bold = True
+        pass
 
-    # હેડર પછી ખાલી જગ્યા અને 1-કોલમ બ્રેક મૂકો (જેથી હેડર ભેગું ના થાય)
     p_break = doc.add_paragraph()
     table._tbl.addnext(p_break._p)
     add_continuous_section_break(p_break, 1)
 
-
-# --- 2. વર્ડ ફાઈલનું ફોર્મેટિંગ ---
+# --- 2. વર્ડ ફાઈલનું ફોર્મેટિંગ (માર્જિન, ફૂટર અને વોટરમાર્ક) ---
 def set_formatting_and_margins(docx_filename, font_size, font_name, header_left, header_center):
     doc = Document(docx_filename)
     
-    # આખા ડોક્યુમેન્ટને બાય-ડિફોલ્ટ 2 કોલમમાં સેટ કરો
     for section in doc.sections:
-        section.top_margin = Inches(0.5)
-        section.bottom_margin = Inches(0.5)
+        section.top_margin = Inches(0.2)
+        section.bottom_margin = Inches(0.2)
         section.left_margin = Inches(0.5)
         section.right_margin = Inches(0.5)
+        section.header_distance = Inches(0.1)
+        section.footer_distance = Inches(0.1)
+        
+        # --- વોટરમાર્ક (Watermark) સેટિંગ ---
+        header = section.header
+        header_para = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+        try:
+            # વોટરમાર્ક તરીકે Asset 345@4x-8.png
+            image_part, rel_id = header.part.get_or_add_image('Asset 345@4x-8.png')
+            watermark_xml = f'''
+            <w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" 
+                 xmlns:v="urn:schemas-microsoft-com:vml" 
+                 xmlns:o="urn:schemas-microsoft-com:office:office" 
+                 xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                <w:pict>
+                    <v:shape id="Watermark" style="position:absolute;left:0;text-align:left;margin-left:0;margin-top:0;width:450pt;height:450pt;z-index:-251657216;mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin" stroked="f">
+                        <v:imagedata r:id="{rel_id}"/>
+                    </v:shape>
+                </w:pict>
+            </w:r>
+            '''
+            header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            header_para._p.append(parse_xml(watermark_xml))
+        except Exception:
+            pass # જો ફાઈલ ન મળે તો એરર નહિ આવે
+            
+        # --- ફૂટર (Footer) સેટિંગ ---
+        footer = section.footer
+        footer_para = footer.paragraphs[0]
+        footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        try:
+            footer_para.add_run().add_picture('FOTTER@4x-8.png', width=Inches(7.5))
+        except Exception:
+            pass
         
         sectPr = section._sectPr
         cols = sectPr.find(qn('w:cols')) or OxmlElement('w:cols')
@@ -169,10 +187,8 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         cols.set(qn('w:space'), '720')   
         cols.set(qn('w:sep'), '1')       
     
-    # હેડર ટેબલ ઉમેરો
     insert_header_table(doc, header_left, header_center, font_name)
 
-    # વધારાની ખાલી જગ્યા (Empty Paragraphs) રિમૂવર
     for paragraph in list(doc.paragraphs):
         if not paragraph.text.strip():
             p = paragraph._element
@@ -192,24 +208,18 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         text = paragraph.text.strip()
         if not text: continue
         
-        # --- બગ ફિક્સ: હવે માત્ર સ્પેશિયલ ટેગ દ્વારા જ ટાઇટલ ઓળખાશે ---
         if '###HEADER###' in text:
             clean_title = text.replace('###HEADER###', '').strip()
-            
-            # ટાઇટલ પહેલાના ભાગને 2 કોલમમાં પૂરો કરો
             if i > 0:
                 add_continuous_section_break(paragraphs[i-1], 2)
             
-            # આ ટાઇટલને 1 સળંગ કોલમ બનાવો
             add_continuous_section_break(paragraph, 1)
             
-            # જૂનો બધો ગોટાળો હટાવી નવેસરથી ટેક્સ્ટ ઉમેરો
             paragraph.text = ""
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
             paragraph.paragraph_format.space_before = Pt(12)
             paragraph.paragraph_format.space_after = Pt(12)
             
-            # ડાર્ક બ્લુ બેકગ્રાઉન્ડ સેટ કરવા
             pPr = paragraph._element.get_or_add_pPr()
             shd = OxmlElement('w:shd')
             shd.set(qn('w:val'), 'clear')
@@ -234,18 +244,15 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             rFonts.set(qn('w:cs'), font_name)
             continue
 
-        # પ્રશ્ન માટેનું સેટિંગ
         if re.match(r'^Q\.\d+', text):
             paragraph.paragraph_format.left_indent = Inches(0.35)
             paragraph.paragraph_format.first_line_indent = Inches(-0.35)
             paragraph.paragraph_format.space_before = Pt(6)
             paragraph.paragraph_format.space_after = Pt(2) 
             paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            
             paragraph.paragraph_format.tab_stops.clear_all()
             paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.35), WD_TAB_ALIGNMENT.LEFT)
             
-        # ઓપ્શન માટેનું સેટિંગ
         elif re.match(r'^\(?[A-D][\)\.]', text):
             paragraph.paragraph_format.left_indent = Inches(0.35)
             paragraph.paragraph_format.first_line_indent = Inches(0)
@@ -261,7 +268,6 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
                 break
                 
             paragraph.paragraph_format.space_after = Pt(8) if is_last_option else Pt(0)
-            
             paragraph.paragraph_format.tab_stops.clear_all()
             tabs_count = paragraph.text.count('\t')
             
@@ -292,7 +298,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
     doc.save(docx_filename)
 
 # --- 3. સ્માર્ટ માર્કડાઉન પાર્સર ---
-def format_content(raw_text, is_continuous):
+def format_content(raw_text, is_continuous, start_num):
     raw_text = raw_text.replace('**', '')
     raw_text = re.sub(r'\n{3,}', '\n\n', raw_text)
     
@@ -321,16 +327,15 @@ def format_content(raw_text, is_continuous):
         questions.append("\n".join(current_q))
         
     formatted_md = ""
-    q_num = 1
+    q_num = start_num 
     
     q_prefix_pattern = r'^([\s]*([Qq]\.?\s*\d+[\.\-\)]*|\d+[\.\-\)]+)\s*)+'
     labels = ['A', 'B', 'C', 'D']
     
     for q_block in questions:
         if q_block.startswith('#'):
-            # જો નંબર્સ રીસેટ કરવાના હોય તો
             if not is_continuous:
-                q_num = 1
+                q_num = start_num
                 
             clean_title = q_block.replace('#', '', 1).strip()
             formatted_md += f"###HEADER### {clean_title}\n\n"
@@ -376,49 +381,52 @@ def format_content(raw_text, is_continuous):
                  
     return formatted_md
 
-# --- 4. Streamlit UI (Clean & Professional) ---
+# --- 4. Streamlit UI ---
+
+col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
+with col_logo2:
+    try:
+        st.image("logo.png", use_container_width=True)
+    except:
+        pass 
 
 st.markdown("<h1 class='main-title'>Question Paper Generator</h1>", unsafe_allow_html=True)
-st.markdown("<div style='text-align: center; margin-top: -15px; margin-bottom: 25px;'><span style='background-color: #000000; color: #ffffff; padding: 6px 18px; border-radius: 20px; font-size: 15px; font-weight: 700; box-shadow: 0px 4px 6px rgba(0,0,0,0.2); letter-spacing: 0.5px;'>Made by Solid Black Institute</span></div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; margin-top: -15px; margin-bottom: 25px;'><span style='background-color: #000000; color: #ffffff; padding: 6px 18px; border-radius: 20px; font-size: 15px; font-weight: 700; box-shadow: 0px 4px 6px rgba(0,0,0,0.2); letter-spacing: 0.5px;'>Made by Yug Ghanshyam Padmani</span></div>", unsafe_allow_html=True)
 
-# --- નવું: પેપરનું હેડર સેટિંગ ---
-st.markdown("### 📝 પેપરનું હેડર ડિઝાઇન (Header Customization)")
+st.markdown("### 📝 પેપરનું હેડર ડિઝાઇન")
 col_h1, col_h2 = st.columns(2)
 with col_h1:
-    header_left = st.text_area("ડાબી બાજુનું ગ્રે બોક્સ (Left Gray Box):", "MCQ\nGUJARATI MEDIUM", height=130)
+    header_left = st.text_area("ડાબી બાજુનું ગ્રે બોક્સ:", "MCQ\nGUJARATI MEDIUM", height=130)
 with col_h2:
-    header_center = st.text_area("વચ્ચેનું મેઈન ટાઈટલ (Center Title):", "STD 12 SCIENCE\nMATHS\n40 MARKS\nDate : 07/08/26", height=130)
+    header_center = st.text_area("વચ્ચેનું મેઈન ટાઈટલ:", "STD 12 SCIENCE\nMATHS\n40 MARKS\nDate : 07/08/26", height=130)
 
 st.divider()
 
-# સેટિંગ્સના 3 ભાગ
-st.markdown("### ⚙️ ફાઇલ સેટિંગ્સ (Settings)")
-col1, col2, col3 = st.columns(3)
+st.markdown("### ⚙️ ફાઇલ સેટિંગ્સ")
+col1, col2, col3, col4 = st.columns(4)
 with col1:
-    file_name = st.text_input("ફાઈલનું નામ (File Name):", "Solid_Black_Paper")
-    # નવું ચેકબોક્સ: પ્રશ્ન નંબર્સ કંટીન્યુ રાખવા માટે
-    is_continuous = st.checkbox("પ્રશ્નોના નંબર સળંગ (Continuous) રાખવા છે?", value=True)
+    file_name = st.text_input("ફાઈલનું નામ:", "Solid_Black_Paper")
 with col2:
-    font_size = st.number_input("ફોન્ટ સાઈઝ (Font Size):", min_value=8, max_value=20, value=10)
+    start_num = st.number_input("પ્રશ્ન નંબર ક્યાંથી શરૂ કરવો છે?", min_value=1, value=1)
 with col3:
-    font_name = st.selectbox("પેપરનો ફોન્ટ (Font):", ["Hind Vadodara", "Shruti", "Cambria Math", "Noto Serif", "Times New Roman", "Calibri", "Arial"])
+    font_size = st.number_input("ફોન્ટ સાઈઝ:", min_value=8, max_value=20, value=10)
+with col4:
+    font_name = st.selectbox("પેપરનો ફોન્ટ:", ["Hind Vadodara", "Shruti", "Cambria Math", "Noto Serif", "Times New Roman", "Calibri", "Arial"])
 
-# પ્રશ્નો નાખવાનું બોક્સ
-st.markdown("### ✍️ પ્રશ્નો (Questions Data)")
-user_input = st.text_area("અહીં પ્રશ્નો પેસ્ટ કરો (ટાઇટલ/સૂચના મૂકવા તેની આગળ # લખો, દા.ત. # Section B):", height=280)
+is_continuous = st.checkbox("પ્રશ્નોના નંબર સળંગ (Continuous) રાખવા છે?", value=True)
 
-# ફાઈલ જનરેટ કરવાનું પ્રોસેસિંગ
-if st.button("વર્ડ ફાઇલ જનરેટ કરો (Generate Word File)"):
+st.markdown("### ✍️ પ્રશ્નો")
+user_input = st.text_area("અહીં પ્રશ્નો પેસ્ટ કરો (ટાઇટલ/સૂચના મૂકવા તેની આગળ # લખો):", height=280)
+
+if st.button("વર્ડ અને PDF ફાઇલ જનરેટ કરો"):
     if user_input.strip():
         with st.spinner("Processing your document..."):
-            # is_continuous ની વેલ્યૂ પાસ કરી
-            processed_md = format_content(user_input, is_continuous)
+            processed_md = format_content(user_input, is_continuous, start_num)
             with open("temp.md", "w", encoding="utf-8") as f:
                 f.write(processed_md)
                 
             try:
                 subprocess.run(["pandoc", "temp.md", "-o", "temp.docx"], check=True)
-                # હેડર ટેક્સ્ટ પાસ કરી
                 set_formatting_and_margins("temp.docx", font_size, font_name, header_left, header_center)
                 
                 final_file = f"{file_name}.docx"
@@ -426,8 +434,23 @@ if st.button("વર્ડ ફાઇલ જનરેટ કરો (Generate Word
                 shutil.move("temp.docx", final_file)
                 
                 st.success("✅ ફાઇલ સફળતાપૂર્વક બની ગઈ છે!")
-                with open(final_file, "rb") as file:
-                    st.download_button("📄 ડાઉનલોડ કરો (Download)", file, file_name=final_file, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                
+                col_d1, col_d2 = st.columns(2)
+                
+                with col_d1:
+                    with open(final_file, "rb") as file:
+                        st.download_button("📄 Word (DOCX) ડાઉનલોડ કરો", file, file_name=final_file, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                
+                with col_d2:
+                    try:
+                        subprocess.run(["libreoffice", "--headless", "--convert-to", "pdf", final_file], check=True)
+                        pdf_file = final_file.replace('.docx', '.pdf')
+                        with open(pdf_file, "rb") as p_file:
+                            st.download_button("📕 PDF ડાઉનલોડ કરો", p_file, file_name=pdf_file, mime="application/pdf")
+                    except Exception:
+                        st.error("⚠️ PDF બનાવવા માટે સિસ્ટમમાં LibreOffice નથી.")
+                        st.info("Terminal માં આ રન કરો: `sudo apt-get update && sudo apt-get install libreoffice -y`")
+                        
             except Exception as e:
                 st.error(f"Error: {e}")
     else:
