@@ -56,10 +56,18 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 1-કોલમ અને 2-કોલમ અલગ પાડવા માટેનું XML લોજિક ---
+# --- 1-કોલમ અને 2-કોલમ અલગ પાડવા માટેનું XML લોજિક (Narrow માર્જિન સાથે) ---
 def make_paragraph_a_section_break(paragraph, num_cols):
     p_pr = paragraph._element.get_or_add_pPr()
     sectPr = OxmlElement('w:sectPr')
+    
+    # ફરજિયાત Narrow માર્જિન સેટ કરવું (નહીંતર 2-કોલમમાં માર્જિન વિખેરાઈ જશે)
+    pgMar = OxmlElement('w:pgMar')
+    pgMar.set(qn('w:top'), '432')     # 0.3 inches
+    pgMar.set(qn('w:bottom'), '432')  # 0.3 inches
+    pgMar.set(qn('w:left'), '720')    # 0.5 inches (Narrow)
+    pgMar.set(qn('w:right'), '720')   # 0.5 inches (Narrow)
+    sectPr.append(pgMar)
     
     type_el = OxmlElement('w:type')
     type_el.set(qn('w:val'), 'continuous')
@@ -68,7 +76,7 @@ def make_paragraph_a_section_break(paragraph, num_cols):
     cols_el = OxmlElement('w:cols')
     cols_el.set(qn('w:num'), str(num_cols))
     if num_cols == 2:
-        cols_el.set(qn('w:space'), '720')
+        cols_el.set(qn('w:space'), '400') # કોલમ વચ્ચેની જગ્યા
         cols_el.set(qn('w:sep'), '1')
     sectPr.append(cols_el)
     
@@ -92,30 +100,30 @@ def insert_header_table(doc, header_left, header_center):
     first_para.addprevious(table._tbl)
     
     table.columns[0].width = Inches(2.4)
-    table.columns[1].width = Inches(3.5)
+    table.columns[1].width = Inches(3.9) # વચ્ચેના ભાગ માટે વધુ જગ્યા
     table.columns[2].width = Inches(1.2)
     
-    # 1. ડાબી બાજુ (logo.png અને બોર્ડર વાળું ટેબલ)
+    # 1. ડાબી બાજુ
     left_cell = table.cell(0, 0)
     p_logo_left = left_cell.paragraphs[0]
     p_logo_left.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    try:
+    if os.path.exists('logo.png'):
         p_logo_left.add_run().add_picture('logo.png', width=Inches(2.4))
-    except:
-        pass
+    else:
+        p_logo_left.add_run("[logo.png missing]").bold = True
         
     lines = header_left.strip().split('\n')
     if not lines: lines = ["MCQ", "GUJARATI MEDIUM"]
     if len(lines) == 1: lines.append(" ")
     
-    # સફેદ લાઈન કાઢવા માટે અંદર બીજું ટેબલ (બ્લેક બોર્ડર સાથે)
+    # ગ્રે બોક્સ અને બોર્ડર 
     nested_table = left_cell.add_table(rows=2, cols=1)
     tblPr = nested_table._tbl.tblPr
     tblBorders = OxmlElement('w:tblBorders')
     
     for b_name in ['top', 'left', 'bottom', 'right', 'insideH']:
         b_el = OxmlElement(f'w:{b_name}')
-        sz = '24' if b_name == 'insideH' else '12' # અંદરની લાઈન જાડી (24), બહારની રેગ્યુલર (12)
+        sz = '24' if b_name == 'insideH' else '12' 
         set_cell_border(b_el, sz=sz)
         tblBorders.append(b_el)
     tblPr.append(tblBorders)
@@ -126,7 +134,7 @@ def insert_header_table(doc, header_left, header_center):
         shd = OxmlElement('w:shd')
         shd.set(qn('w:val'), 'clear')
         shd.set(qn('w:color'), 'auto')
-        shd.set(qn('w:fill'), 'D9D9D9') # ગ્રે કલર
+        shd.set(qn('w:fill'), 'D9D9D9') 
         tcPr.append(shd)
         
         np = n_cell.paragraphs[0]
@@ -136,7 +144,7 @@ def insert_header_table(doc, header_left, header_center):
         n_run.font.bold = True
         n_run.font.size = Pt(14)
     
-    # 2. વચ્ચેનો ભાગ (ટાઇટલ)
+    # 2. વચ્ચેનો ભાગ (ટાઇટલ એકદમ પ્રોફેશનલ અને મોટા અક્ષરે)
     center_cell = table.cell(0, 1)
     p_center = center_cell.paragraphs[0]
     p_center.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -145,20 +153,25 @@ def insert_header_table(doc, header_left, header_center):
         r = p_center.add_run(line)
         r.font.name = h_font
         r.font.bold = True
-        r.font.size = Pt(20) if i == 0 else Pt(14)
+        if i == 0:
+            r.font.size = Pt(22) # સૌથી મોટું ટાઈટલ
+        elif i == 1:
+            r.font.size = Pt(16)
+        else:
+            r.font.size = Pt(14)
+            
         if i < len(c_lines) - 1:
             p_center.add_run('\n')
             
-    # 3. જમણી બાજુ (sblogo.png)
+    # 3. જમણી બાજુ
     right_cell = table.cell(0, 2)
     p_right = right_cell.paragraphs[0]
     p_right.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    try:
+    if os.path.exists('sblogo.png'):
         p_right.add_run().add_picture('sblogo.png', width=Inches(1.2))
-    except:
-        pass
+    else:
+        p_right.add_run("[sblogo.png missing]").bold = True
 
-    # હેડર ટેબલ પૂરું થાય એટલે ફરજિયાત 1-કોલમ નો બ્રેક
     p_break = doc.add_paragraph()
     table._tbl.addnext(p_break._p)
     make_paragraph_a_section_break(p_break, 1)
@@ -168,8 +181,9 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
     doc = Document(docx_filename)
     
     for section in doc.sections:
+        # ફરજિયાત Narrow માર્જિન અહીં પણ સેટ કર્યું છે
         section.top_margin = Inches(0.3) 
-        section.bottom_margin = Inches(0.5)
+        section.bottom_margin = Inches(0.3)
         section.left_margin = Inches(0.5) 
         section.right_margin = Inches(0.5) 
         section.header_distance = Inches(0.1)
@@ -179,7 +193,8 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         header = section.header
         header.is_linked_to_previous = False
         header_para = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
-        try:
+        header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        if os.path.exists('sblogo.png'):
             image_part, rel_id = header.part.get_or_add_image('sblogo.png')
             watermark_xml = f'''
             <w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" 
@@ -193,20 +208,16 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
                 </w:pict>
             </w:r>
             '''
-            header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             header_para._p.append(parse_xml(watermark_xml))
-        except Exception:
-            pass 
             
         # ફૂટર (FOTTER@4x-8.png)
         footer = section.footer
         footer.is_linked_to_previous = False
         footer_para = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
         footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        try:
-            footer_para.add_run().add_picture('FOTTER@4x-8.png', width=Inches(7.5))
-        except Exception:
-            pass
+        if os.path.exists('FOTTER@4x-8.png'):
+            run = footer_para.add_run()
+            run.add_picture('FOTTER@4x-8.png', width=Inches(7.5))
 
     insert_header_table(doc, header_left, header_center)
 
@@ -229,13 +240,12 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         text = paragraph.text.strip()
         if not text: continue
         
-        # ### વાળું ટાઇટલ (1-Column માં)
+        # ### વાળું ટાઇટલ
         if '###HEADER###' in text:
             clean_title = text.replace('###HEADER###', '').strip()
             
             if i > 0:
                 make_paragraph_a_section_break(paragraphs[i-1], 2)
-            
             make_paragraph_a_section_break(paragraph, 1)
             
             paragraph.text = ""
@@ -247,7 +257,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             shd = OxmlElement('w:shd')
             shd.set(qn('w:val'), 'clear')
             shd.set(qn('w:color'), 'auto')
-            shd.set(qn('w:fill'), '000080') # ડાર્ક નેવી બ્લુ
+            shd.set(qn('w:fill'), '000080')
             pPr.append(shd)
             
             run = paragraph.add_run(clean_title)
@@ -257,7 +267,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             run.font.name = font_name
             continue
 
-        # પ્રશ્નો (2-Column માટે)
+        # પ્રશ્નો
         if re.match(r'^Q\.\d+', text):
             paragraph.paragraph_format.left_indent = Inches(0.35)
             paragraph.paragraph_format.first_line_indent = Inches(-0.35)
@@ -306,7 +316,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
     cols = sectPr.find(qn('w:cols')) or OxmlElement('w:cols')
     if cols not in sectPr: sectPr.append(cols)
     cols.set(qn('w:num'), '2')
-    cols.set(qn('w:space'), '720')
+    cols.set(qn('w:space'), '400')
     cols.set(qn('w:sep'), '1')
                 
     doc.save(docx_filename)
@@ -324,7 +334,6 @@ def format_content(raw_text, is_continuous, start_num, end_num):
     
     for line in lines:
         if not line.strip(): continue
-        
         if line.strip().startswith('### '):
             if current_q:
                 questions.append("\n".join(current_q))
@@ -348,12 +357,11 @@ def format_content(raw_text, is_continuous, start_num, end_num):
     
     for q_block in questions:
         if end_num > 0 and q_num > end_num and not q_block.startswith('### '):
-            continue # જો એન્ડ નંબર આવી જાય તો આગળના પ્રશ્નો નહિ લે
+            continue 
             
         if q_block.startswith('### '):
             if not is_continuous:
                 q_num = start_num
-                
             clean_title = q_block.replace('###', '', 1).strip()
             formatted_md += f"###HEADER### {clean_title}\n\n"
             continue
@@ -364,7 +372,6 @@ def format_content(raw_text, is_continuous, start_num, end_num):
         if len(matches) >= 4:
             opts = matches[-4:]
             q_text = q_block[:opts[0].start()].strip()
-            
             q_text = re.sub(q_prefix_pattern, '', q_text).strip()
             q_text = re.sub(r'\n\s*\n', '\n', q_text)
             
@@ -400,12 +407,15 @@ def format_content(raw_text, is_continuous, start_num, end_num):
 
 # --- 4. Streamlit UI ---
 
+# ⚠️ ઈમેજ ફાઈલોનું ચેકિંગ (અહીં જ ખબર પડી જશે કે કોઈ ફાઈલ મિસિંગ છે કે નહિ)
+missing_assets = [f for f in ['logo.png', 'sblogo.png', 'FOTTER@4x-8.png'] if not os.path.exists(f)]
+if missing_assets:
+    st.error(f"⚠️ ચેતવણી: આ ઈમેજ ફાઈલો સિસ્ટમમાં નથી મળી: **{', '.join(missing_assets)}**. પ્લીઝ અપલોડ કરો, નહીંતર પેપરમાં તે નહિ દેખાય!")
+
 col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
 with col_logo2:
-    try:
-        st.image("logo.png", use_container_width=True) # વેબસાઈટ પર IIT/NEET વાળો લોગો
-    except:
-        pass 
+    if os.path.exists('logo.png'):
+        st.image("logo.png", use_container_width=True)
 
 st.markdown("<h1 class='main-title'>Question Paper Generator</h1>", unsafe_allow_html=True)
 st.markdown("<div style='text-align: center; margin-top: -15px; margin-bottom: 25px;'><span style='background-color: #000000; color: #ffffff; padding: 6px 18px; border-radius: 20px; font-size: 15px; font-weight: 700; box-shadow: 0px 4px 6px rgba(0,0,0,0.2); letter-spacing: 0.5px;'>Made by Yug Ghanshyam Padmani</span></div>", unsafe_allow_html=True)
@@ -419,7 +429,6 @@ with col_h2:
 
 st.divider()
 
-# સેટિંગ્સને ફરજિયાત અને ઓપન રાખ્યા છે
 st.markdown("### ⚙️ ફાઇલ સેટિંગ્સ (આ ભરવું ફરજિયાત છે!)")
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -438,7 +447,6 @@ st.markdown("### ✍️ પ્રશ્નો (ફરજિયાત)")
 user_input = st.text_area("અહીં પ્રશ્નો પેસ્ટ કરો (ડાર્ક બ્લુ ટાઇટલ મૂકવા તેની આગળ ફરજિયાત ### લખો, દા.ત. ### Section B):", height=280)
 
 if st.button("વર્ડ અને PDF ફાઇલ જનરેટ કરો"):
-    # ફરજિયાત ઇનપુટ વેલિડેશન
     if not file_name.strip():
         st.error("⚠️ ભૂલ: 'ફાઈલનું નામ' ખાલી છે! કૃપા કરીને ફાઈલનું નામ લખો.")
     elif not user_input.strip():
