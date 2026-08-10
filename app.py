@@ -479,12 +479,16 @@ if st.button("🚀 વર્ડ અને PDF ફાઇલ જનરેટ ક�
                 
                 with col_d2:
                     try:
-                        subprocess.run(["libreoffice", "--headless", "--convert-to", "pdf", final_file], check=True)
+                        from docx2pdf import convert
                         pdf_file = final_file.replace('.docx', '.pdf')
+                        # આ ફંક્શન તમારા PC નું વર્ડ વાપરીને બેકગ્રાઉન્ડમાં PDF બનાવશે
+                        convert(final_file, pdf_file)
+                        
                         with open(pdf_file, "rb") as p_file:
                             st.download_button("📕 PDF ફાઇલ ડાઉનલોડ કરો", p_file, file_name=pdf_file, mime="application/pdf")
-                    except Exception:
-                        st.error("⚠️ સિસ્ટમમાં LibreOffice નથી. PDF માટે ટર્મિનલમાં રન કરો: `sudo apt-get install libreoffice -y`")
+                    except Exception as e:
+                        st.error(f"⚠️ PDF બનાવવામાં એરર: {e}")
+                        st.info("ખાતરી કરો કે Terminal માં `pip install docx2pdf` રન કરેલું છે અને તમારા PC માં MS Word ચાલુ છે.")
                         
             except Exception as e:
                 st.error(f"Error: {e}")
