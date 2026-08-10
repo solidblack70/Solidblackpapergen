@@ -1,12 +1,13 @@
 import streamlit as st
 import subprocess
 import re
+import shutil
+import os
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_TAB_ALIGNMENT, WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement, parse_xml
-import os
 
 # --- 1. Page Config & Custom CSS ---
 st.set_page_config(page_title="Solid Black | Paper Generator", layout="wide", page_icon="📝")
@@ -75,40 +76,57 @@ def add_continuous_section_break(paragraph, num_cols):
     sectPr.append(cols_el)
     pPr.append(sectPr)
 
-# --- 3 કોલમ હેડર ડિઝાઇન ---
-def insert_header_table(doc, header_left, header_center, font_name):
+# --- 3 કોલમ હેડર ડિઝાઇન (Times New Roman + Thick Line + Big Logo) ---
+def insert_header_table(doc, header_left, header_center):
+    h_font = "Times New Roman" # હેડર માટે ફોન્ટ ફિક્સ
+    
     table = doc.add_table(rows=1, cols=3)
     table.autofit = False
     
+    # ટેબલને એકદમ ઉપર ખસેડ્યું
     first_para = doc.paragraphs[0]._p
     first_para.addprevious(table._tbl)
     
-    table.columns[0].width = Inches(2.0)
+    table.columns[0].width = Inches(2.4)
     table.columns[1].width = Inches(3.5)
-    table.columns[2].width = Inches(1.5)
+    table.columns[2].width = Inches(1.2)
     
-    # 1. ડાબી બાજુ
+    # 1. ડાબી બાજુ (મોટો લોગો અને ગ્રે બોક્સ જાડી લાઈન સાથે)
     left_cell = table.cell(0, 0)
     p_logo_left = left_cell.paragraphs[0]
     p_logo_left.alignment = WD_ALIGN_PARAGRAPH.CENTER
     try:
-        p_logo_left.add_run().add_picture('small_logo.png', width=Inches(1.5))
+        p_logo_left.add_run().add_picture('small_logo.png', width=Inches(2.4))
     except:
         pass
         
-    p_gray = left_cell.add_paragraph()
-    p_gray.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    pPr = p_gray._element.get_or_add_pPr()
-    shd = OxmlElement('w:shd')
-    shd.set(qn('w:val'), 'clear')
-    shd.set(qn('w:color'), 'auto')
-    shd.set(qn('w:fill'), 'D9D9D9')
-    pPr.append(shd)
-    
-    run_gray = p_gray.add_run(header_left)
-    run_gray.font.name = font_name
-    run_gray.font.bold = True
-    run_gray.font.size = Pt(12)
+    lines = header_left.strip().split('\n')
+    for idx, line in enumerate(lines):
+        p_gray = left_cell.add_paragraph()
+        p_gray.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        pPr = p_gray._element.get_or_add_pPr()
+        shd = OxmlElement('w:shd')
+        shd.set(qn('w:val'), 'clear')
+        shd.set(qn('w:color'), 'auto')
+        shd.set(qn('w:fill'), 'D9D9D9')
+        pPr.append(shd)
+        
+        # પહેલી લાઈન (MCQ) ની નીચે જાડી લાઈન મૂકો
+        if idx == 0 and len(lines) > 1:
+            pBdr = OxmlElement('w:pBdr')
+            bottom = OxmlElement('w:bottom')
+            bottom.set(qn('w:val'), 'single')
+            bottom.set(qn('w:sz'), '24') # જાડી લાઈન (3 pt)
+            bottom.set(qn('w:space'), '4')
+            bottom.set(qn('w:color'), '000000')
+            pBdr.append(bottom)
+            pPr.append(pBdr)
+        
+        run_gray = p_gray.add_run(line)
+        run_gray.font.name = h_font
+        run_gray.font.bold = True
+        run_gray.font.size = Pt(14)
     
     # 2. વચ્ચેનો ભાગ
     center_cell = table.cell(0, 1)
@@ -117,7 +135,7 @@ def insert_header_table(doc, header_left, header_center, font_name):
     lines = header_center.strip().split('\n')
     for i, line in enumerate(lines):
         r = p_center.add_run(line)
-        r.font.name = font_name
+        r.font.name = h_font
         r.font.bold = True
         r.font.size = Pt(20) if i == 0 else Pt(14)
         if i < len(lines) - 1:
@@ -132,19 +150,21 @@ def insert_header_table(doc, header_left, header_center, font_name):
     except:
         pass
 
+    # હેડર ટેબલ પછી 1-કોલમ નો બ્રેક મૂકો (જેથી ૨-કોલમ અંદર ઘૂસી ન જાય)
     p_break = doc.add_paragraph()
     table._tbl.addnext(p_break._p)
     add_continuous_section_break(p_break, 1)
 
-# --- 2. વર્ડ ફાઈલનું ફોર્મેટિંગ (માર્જિન, ફૂટર અને વોટરમાર્ક) ---
+# --- 2. વર્ડ ફાઈલનું ફોર્મેટિંગ ---
 def set_formatting_and_margins(docx_filename, font_size, font_name, header_left, header_center):
     doc = Document(docx_filename)
     
+    # આખા ડોક્યુમેન્ટને બાય-ડિફોલ્ટ 2 કોલમમાં સેટ કરો અને માર્જિન સેટ કરો
     for section in doc.sections:
-        section.top_margin = Inches(0.2)
-        section.bottom_margin = Inches(0.2)
-        section.left_margin = Inches(0.5)
-        section.right_margin = Inches(0.5)
+        section.top_margin = Inches(0.3) # હેડરની ઉપર થોડીક જ જગ્યા 
+        section.bottom_margin = Inches(0.5)
+        section.left_margin = Inches(0.5) # Narrow
+        section.right_margin = Inches(0.5) # Narrow
         section.header_distance = Inches(0.1)
         section.footer_distance = Inches(0.1)
         
@@ -152,7 +172,6 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         header = section.header
         header_para = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
         try:
-            # વોટરમાર્ક તરીકે Asset 345@4x-8.png
             image_part, rel_id = header.part.get_or_add_image('Asset 345@4x-8.png')
             watermark_xml = f'''
             <w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" 
@@ -169,7 +188,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             header_para._p.append(parse_xml(watermark_xml))
         except Exception:
-            pass # જો ફાઈલ ન મળે તો એરર નહિ આવે
+            pass 
             
         # --- ફૂટર (Footer) સેટિંગ ---
         footer = section.footer
@@ -187,7 +206,8 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         cols.set(qn('w:space'), '720')   
         cols.set(qn('w:sep'), '1')       
     
-    insert_header_table(doc, header_left, header_center, font_name)
+    # 2-કોલમ સેટ કર્યા પછી, હેડર ટેબલ 1-કોલમમાં ઇન્સર્ટ કરો
+    insert_header_table(doc, header_left, header_center)
 
     for paragraph in list(doc.paragraphs):
         if not paragraph.text.strip():
@@ -231,7 +251,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             run.font.color.rgb = RGBColor(255, 255, 255)
             run.font.bold = True
             run.font.size = Pt(font_size + 4)
-            run.font.name = font_name
+            run.font.name = "Times New Roman" # ટાઇટલ ના ફોન્ટ ફિક્સ
             
             r = run._element
             rPr = r.get_or_add_rPr()
@@ -239,9 +259,9 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             if rFonts is None:
                 rFonts = OxmlElement('w:rFonts')
                 rPr.append(rFonts)
-            rFonts.set(qn('w:ascii'), font_name)
-            rFonts.set(qn('w:hAnsi'), font_name)
-            rFonts.set(qn('w:cs'), font_name)
+            rFonts.set(qn('w:ascii'), "Times New Roman")
+            rFonts.set(qn('w:hAnsi'), "Times New Roman")
+            rFonts.set(qn('w:cs'), "Times New Roman")
             continue
 
         if re.match(r'^Q\.\d+', text):
@@ -430,7 +450,6 @@ if st.button("વર્ડ અને PDF ફાઇલ જનરેટ કરો"
                 set_formatting_and_margins("temp.docx", font_size, font_name, header_left, header_center)
                 
                 final_file = f"{file_name}.docx"
-                import shutil
                 shutil.move("temp.docx", final_file)
                 
                 st.success("✅ ફાઇલ સફળતાપૂર્વક બની ગઈ છે!")
