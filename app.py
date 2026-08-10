@@ -61,7 +61,7 @@ def make_paragraph_a_section_break(paragraph, num_cols):
     p_pr = paragraph._element.get_or_add_pPr()
     sectPr = OxmlElement('w:sectPr')
     
-    # ફરજિયાત Narrow માર્જિન સેટ કરવું (નહીંતર 2-કોલમમાં માર્જિન વિખેરાઈ જશે)
+    # ફરજિયાત Narrow માર્જિન સેટ કરવું 
     pgMar = OxmlElement('w:pgMar')
     pgMar.set(qn('w:top'), '432')     # 0.3 inches
     pgMar.set(qn('w:bottom'), '432')  # 0.3 inches
@@ -76,13 +76,12 @@ def make_paragraph_a_section_break(paragraph, num_cols):
     cols_el = OxmlElement('w:cols')
     cols_el.set(qn('w:num'), str(num_cols))
     if num_cols == 2:
-        cols_el.set(qn('w:space'), '400') # કોલમ વચ્ચેની જગ્યા
+        cols_el.set(qn('w:space'), '400') 
         cols_el.set(qn('w:sep'), '1')
     sectPr.append(cols_el)
     
     p_pr.append(sectPr)
 
-# ટેબલની બોર્ડર સેટ કરવા માટે ફંક્શન
 def set_cell_border(border_el, val='single', sz='12', space='0', color='000000'):
     border_el.set(qn('w:val'), val)
     border_el.set(qn('w:sz'), sz)
@@ -100,7 +99,7 @@ def insert_header_table(doc, header_left, header_center):
     first_para.addprevious(table._tbl)
     
     table.columns[0].width = Inches(2.4)
-    table.columns[1].width = Inches(3.9) # વચ્ચેના ભાગ માટે વધુ જગ્યા
+    table.columns[1].width = Inches(3.9) 
     table.columns[2].width = Inches(1.2)
     
     # 1. ડાબી બાજુ
@@ -116,7 +115,6 @@ def insert_header_table(doc, header_left, header_center):
     if not lines: lines = ["MCQ", "GUJARATI MEDIUM"]
     if len(lines) == 1: lines.append(" ")
     
-    # ગ્રે બોક્સ અને બોર્ડર 
     nested_table = left_cell.add_table(rows=2, cols=1)
     tblPr = nested_table._tbl.tblPr
     tblBorders = OxmlElement('w:tblBorders')
@@ -144,7 +142,7 @@ def insert_header_table(doc, header_left, header_center):
         n_run.font.bold = True
         n_run.font.size = Pt(14)
     
-    # 2. વચ્ચેનો ભાગ (ટાઇટલ એકદમ પ્રોફેશનલ અને મોટા અક્ષરે)
+    # 2. વચ્ચેનો ભાગ (મોટા અક્ષરે Times New Roman)
     center_cell = table.cell(0, 1)
     p_center = center_cell.paragraphs[0]
     p_center.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -154,7 +152,7 @@ def insert_header_table(doc, header_left, header_center):
         r.font.name = h_font
         r.font.bold = True
         if i == 0:
-            r.font.size = Pt(22) # સૌથી મોટું ટાઈટલ
+            r.font.size = Pt(22) 
         elif i == 1:
             r.font.size = Pt(16)
         else:
@@ -181,7 +179,6 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
     doc = Document(docx_filename)
     
     for section in doc.sections:
-        # ફરજિયાત Narrow માર્જિન અહીં પણ સેટ કર્યું છે
         section.top_margin = Inches(0.3) 
         section.bottom_margin = Inches(0.3)
         section.left_margin = Inches(0.5) 
@@ -189,35 +186,42 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         section.header_distance = Inches(0.1)
         section.footer_distance = Inches(0.1)
         
-        # વોટરમાર્ક (sblogo.png)
+        # વોટરમાર્ક (આ કોડ હવે સિંગલ લાઈનમાં છે જેથી એરર ન આવે)
         header = section.header
         header.is_linked_to_previous = False
         header_para = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
         header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
         if os.path.exists('sblogo.png'):
-            image_part, rel_id = header.part.get_or_add_image('sblogo.png')
-            watermark_xml = f'''
-            <w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" 
-                 xmlns:v="urn:schemas-microsoft-com:vml" 
-                 xmlns:o="urn:schemas-microsoft-com:office:office" 
-                 xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-                <w:pict>
-                    <v:shape id="Watermark" style="position:absolute;left:0;text-align:left;margin-left:0;margin-top:0;width:450pt;height:450pt;z-index:-251657216;mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin" stroked="f">
-                        <v:imagedata r:id="{rel_id}"/>
-                    </v:shape>
-                </w:pict>
-            </w:r>
-            '''
-            header_para._p.append(parse_xml(watermark_xml))
+            try:
+                image_part, rel_id = header.part.get_or_add_image('sblogo.png')
+                watermark_xml = (
+                    '<w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+                    'xmlns:v="urn:schemas-microsoft-com:vml" '
+                    'xmlns:o="urn:schemas-microsoft-com:office:office" '
+                    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                    '<w:pict>'
+                    '<v:shape id="Watermark" style="position:absolute;left:0;text-align:left;margin-left:0;margin-top:0;width:450pt;height:450pt;z-index:-251657216;mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin" stroked="f">'
+                    f'<v:imagedata r:id="{rel_id}"/>'
+                    '</v:shape>'
+                    '</w:pict>'
+                    '</w:r>'
+                )
+                header_para._p.append(parse_xml(watermark_xml))
+            except Exception as e:
+                print(f"Watermark parsing error safely skipped: {e}")
+                pass
             
-        # ફૂટર (FOTTER@4x-8.png)
+        # ફૂટર
         footer = section.footer
         footer.is_linked_to_previous = False
         footer_para = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
         footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
         if os.path.exists('FOTTER@4x-8.png'):
-            run = footer_para.add_run()
-            run.add_picture('FOTTER@4x-8.png', width=Inches(7.5))
+            try:
+                run = footer_para.add_run()
+                run.add_picture('FOTTER@4x-8.png', width=Inches(7.5))
+            except Exception:
+                pass
 
     insert_header_table(doc, header_left, header_center)
 
@@ -240,7 +244,6 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         text = paragraph.text.strip()
         if not text: continue
         
-        # ### વાળું ટાઇટલ
         if '###HEADER###' in text:
             clean_title = text.replace('###HEADER###', '').strip()
             
@@ -267,7 +270,6 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             run.font.name = font_name
             continue
 
-        # પ્રશ્નો
         if re.match(r'^Q\.\d+', text):
             paragraph.paragraph_format.left_indent = Inches(0.35)
             paragraph.paragraph_format.first_line_indent = Inches(-0.35)
@@ -310,7 +312,6 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             run.font.size = Pt(font_size)
             run.font.name = font_name
             
-    # છેલ્લે આખું પેપર 2-કોલમમાં સેટ કરી દો
     final_section = doc.sections[-1]
     sectPr = final_section._sectPr
     cols = sectPr.find(qn('w:cols')) or OxmlElement('w:cols')
@@ -407,7 +408,6 @@ def format_content(raw_text, is_continuous, start_num, end_num):
 
 # --- 4. Streamlit UI ---
 
-# ⚠️ ઈમેજ ફાઈલોનું ચેકિંગ (અહીં જ ખબર પડી જશે કે કોઈ ફાઈલ મિસિંગ છે કે નહિ)
 missing_assets = [f for f in ['logo.png', 'sblogo.png', 'FOTTER@4x-8.png'] if not os.path.exists(f)]
 if missing_assets:
     st.error(f"⚠️ ચેતવણી: આ ઈમેજ ફાઈલો સિસ્ટમમાં નથી મળી: **{', '.join(missing_assets)}**. પ્લીઝ અપલોડ કરો, નહીંતર પેપરમાં તે નહિ દેખાય!")
@@ -415,7 +415,7 @@ if missing_assets:
 col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
 with col_logo2:
     if os.path.exists('logo.png'):
-        st.image("logo.png", use_container_width=True)
+        st.image("logo.png", use_container_width=True) 
 
 st.markdown("<h1 class='main-title'>Question Paper Generator</h1>", unsafe_allow_html=True)
 st.markdown("<div style='text-align: center; margin-top: -15px; margin-bottom: 25px;'><span style='background-color: #000000; color: #ffffff; padding: 6px 18px; border-radius: 20px; font-size: 15px; font-weight: 700; box-shadow: 0px 4px 6px rgba(0,0,0,0.2); letter-spacing: 0.5px;'>Made by Yug Ghanshyam Padmani</span></div>", unsafe_allow_html=True)
