@@ -204,10 +204,10 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         footer.is_linked_to_previous = False
         footer_para = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
         footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        if os.path.exists('footer.png'):
+        if os.path.exists('FOTTER@4x-8.png'):
             try:
                 run = footer_para.add_run()
-                run.add_picture('footer.png', width=Inches(7.5))
+                run.add_picture('FOTTER@4x-8.png', width=Inches(7.5))
             except Exception:
                 pass
 
