@@ -5,6 +5,7 @@ import shutil
 import os
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor
+from docx.enum.section import WD_SECTION
 from docx.enum.text import WD_TAB_ALIGNMENT, WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement, parse_xml
@@ -15,35 +16,16 @@ st.set_page_config(page_title="Solid Black | Paper Generator", layout="wide", pa
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Hind+Vadodara:wght@400;600;700&display=swap');
-    html, body, [class*="css"], p, h1, h2, h3, h4, span, label {
-        font-family: 'Hind Vadodara', sans-serif !important;
-    }
-    .main-title {
-        text-align: center; font-weight: 700; font-size: 32px;
-        margin-top: 5px; margin-bottom: 5px; color: #1a1a1a;
-    }
-    .subtitle-badge {
-        text-align: center; margin-bottom: 25px;
-    }
-    .subtitle-badge span {
-        background-color: #1a1a1a; color: #ffffff; padding: 5px 15px;
-        border-radius: 20px; font-size: 13px; letter-spacing: 1px;
-    }
-    div.stButton > button:first-child {
-        background-color: #1F4E79; color: #ffffff; border-radius: 6px;
-        padding: 10px 24px; font-size: 18px; font-weight: bold;
-        width: 100%; border: none; transition: 0.3s;
-    }
-    div.stButton > button:first-child:hover {
-        background-color: #112d47; box-shadow: 0px 4px 10px rgba(0,0,0,0.2);
-    }
-    .stTextArea textarea {
-        border-radius: 6px !important; border: 1px solid #999 !important;
-    }
+    html, body, [class*="css"], p, h1, h2, h3, h4, span, label { font-family: 'Hind Vadodara', sans-serif !important; }
+    .main-title { text-align: center; font-weight: 700; font-size: 32px; margin-top: 5px; margin-bottom: 5px; color: #1a1a1a; }
+    .subtitle-badge { text-align: center; margin-bottom: 25px; }
+    .subtitle-badge span { background-color: #1a1a1a; color: #ffffff; padding: 5px 15px; border-radius: 20px; font-size: 13px; letter-spacing: 1px; }
+    div.stButton > button:first-child { background-color: #1F4E79; color: #ffffff; border-radius: 6px; padding: 10px 24px; font-size: 18px; font-weight: bold; width: 100%; border: none; transition: 0.3s; }
+    div.stButton > button:first-child:hover { background-color: #112d47; box-shadow: 0px 4px 10px rgba(0,0,0,0.2); }
+    .stTextArea textarea { border-radius: 6px !important; border: 1px solid #999 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- XML Tools (Borders & Section Breaks) ---
 def set_cell_border(border_el, val='single', sz='12', space='0', color='000000'):
     border_el.set(qn('w:val'), val)
     border_el.set(qn('w:sz'), sz)
@@ -53,18 +35,15 @@ def set_cell_border(border_el, val='single', sz='12', space='0', color='000000')
 def insert_continuous_section_break(paragraph, num_cols):
     pPr = paragraph._element.get_or_add_pPr()
     sectPr = OxmlElement('w:sectPr')
-    
     pgMar = OxmlElement('w:pgMar')
     pgMar.set(qn('w:top'), '432')    
     pgMar.set(qn('w:bottom'), '432') 
     pgMar.set(qn('w:left'), '720')   
     pgMar.set(qn('w:right'), '720')  
     sectPr.append(pgMar)
-    
     type_el = OxmlElement('w:type')
     type_el.set(qn('w:val'), 'continuous')
     sectPr.append(type_el)
-    
     cols_el = OxmlElement('w:cols')
     cols_el.set(qn('w:num'), str(num_cols))
     if num_cols == 2:
@@ -73,25 +52,20 @@ def insert_continuous_section_break(paragraph, num_cols):
     sectPr.append(cols_el)
     pPr.append(sectPr)
 
-# --- હેડર ડિઝાઇન (1-Column & Thick Line Fix) ---
 def insert_header_table(doc, header_left, header_center):
     h_font = "Times New Roman"
     table = doc.add_table(rows=1, cols=3)
     table.autofit = False
-    
     first_para = doc.paragraphs[0]._p
     first_para.addprevious(table._tbl)
-    
     table.columns[0].width = Inches(2.4)
     table.columns[1].width = Inches(3.9) 
     table.columns[2].width = Inches(1.2)
     
-    # 1. ડાબી બાજુ
     left_cell = table.cell(0, 0)
     p_logo_left = left_cell.paragraphs[0]
     p_logo_left.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    if os.path.exists('logo.png'):
-        p_logo_left.add_run().add_picture('logo.png', width=Inches(2.4))
+    if os.path.exists('logo.png'): p_logo_left.add_run().add_picture('logo.png', width=Inches(2.4))
         
     lines = header_left.strip().split('\n')
     if not lines: lines = ["MCQ", "ENGLISH MEDIUM"]
@@ -111,25 +85,20 @@ def insert_header_table(doc, header_left, header_center):
         tcPr = n_cell._tc.get_or_add_tcPr()
         shd = OxmlElement('w:shd', {qn('w:val'): 'clear', qn('w:color'): 'auto', qn('w:fill'): 'D9D9D9'})
         tcPr.append(shd)
-        
-        # ઝીરો સ્પેસિંગ જેથી ગ્રે બોક્સમાં વ્હાઈટ લાઈન ન દેખાય
         tcMar = OxmlElement('w:tcMar')
         for m in ['top', 'left', 'bottom', 'right']:
             el = OxmlElement(f'w:{m}', {qn('w:w'): '0', qn('w:type'): 'dxa'})
             tcMar.append(el)
         tcPr.append(tcMar)
-        
         np = n_cell.paragraphs[0]
         np.alignment = WD_ALIGN_PARAGRAPH.CENTER
         np.paragraph_format.space_before = Pt(0)
         np.paragraph_format.space_after = Pt(0)
-        
         n_run = np.add_run(lines[r_idx])
         n_run.font.name = h_font
         n_run.font.bold = True
         n_run.font.size = Pt(14)
     
-    # 2. વચ્ચેનો ભાગ (5 લાઈનનું ટાઇટલ)
     center_cell = table.cell(0, 1)
     p_center = center_cell.paragraphs[0]
     p_center.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -145,14 +114,11 @@ def insert_header_table(doc, header_left, header_center):
         else: r.font.size = Pt(16)            
         if i < len(c_lines) - 1: p_center.add_run('\n')
             
-    # 3. જમણી બાજુ
     right_cell = table.cell(0, 2)
     p_right = right_cell.paragraphs[0]
     p_right.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    if os.path.exists('sblogo.png'):
-        p_right.add_run().add_picture('sblogo.png', width=Inches(1.2))
+    if os.path.exists('sblogo.png'): p_right.add_run().add_picture('sblogo.png', width=Inches(1.2))
 
-    # હેડરની નીચેની પાતળી લાઈન
     p_line = doc.add_paragraph()
     table._tbl.addnext(p_line._p)
     pPr = p_line._element.get_or_add_pPr()
@@ -161,14 +127,10 @@ def insert_header_table(doc, header_left, header_center):
     pBdr.append(bottom)
     pPr.append(pBdr)
     
-    # હેડર ટેબલ અને લાઈનને 1-કોલમમાં પેક કરો
     insert_continuous_section_break(p_line, 1)
 
-# --- મુખ્ય ફોર્મેટિંગ ફંક્શન ---
 def set_formatting_and_margins(docx_filename, font_size, font_name, header_left, header_center):
     doc = Document(docx_filename)
-    
-    # હેડર ટેબલ ઉમેરો
     insert_header_table(doc, header_left, header_center)
 
     for paragraph in list(doc.paragraphs):
@@ -190,19 +152,13 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         # 1-Column ડાર્ક બ્લુ ટાઇટલ
         if '###HEADER###' in text:
             clean_title = text.replace('###HEADER###', '').strip()
-            
-            # આગળના ભાગને 2-કોલમમાં પેક કરો
-            if i > 0:
-                insert_continuous_section_break(paragraphs[i-1], 2)
-            
-            # આ ટાઇટલને 1-કોલમમાં રાખો
+            if i > 0: insert_continuous_section_break(paragraphs[i-1], 2)
             insert_continuous_section_break(paragraph, 1)
             
             paragraph.text = ""
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
             paragraph.paragraph_format.space_before = Pt(12)
             paragraph.paragraph_format.space_after = Pt(12)
-            
             shd = OxmlElement('w:shd', {qn('w:val'): 'clear', qn('w:color'): 'auto', qn('w:fill'): '000080'})
             paragraph._element.get_or_add_pPr().append(shd)
             
@@ -213,6 +169,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             run.font.name = "Times New Roman"
             continue
 
+        # પ્રશ્નો (Q.25 કે પ્રશ્ન 25 ગમે તે હોય)
         if re.match(r'^Q\.\d+', text):
             paragraph.paragraph_format.left_indent = Inches(0.35)
             paragraph.paragraph_format.first_line_indent = Inches(-0.35)
@@ -222,6 +179,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             paragraph.paragraph_format.tab_stops.clear_all()
             paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.35), WD_TAB_ALIGNMENT.LEFT)
             
+        # ઓપ્શન્સ (Tabs નું નવું ફિક્સ ગણિત)
         elif re.match(r'^\(?[A-Da-d1-4][\)\.]', text) and '\t' in paragraph.text:
             paragraph.paragraph_format.left_indent = Inches(0.35)
             paragraph.paragraph_format.first_line_indent = Inches(0)
@@ -241,11 +199,13 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             tabs_count = paragraph.text.count('\t')
             
             if tabs_count == 3: 
-                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.8), WD_TAB_ALIGNMENT.LEFT)
-                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.6), WD_TAB_ALIGNMENT.LEFT)
-                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(2.4), WD_TAB_ALIGNMENT.LEFT)
+                # ૧ લાઈનમાં ૪ ઓપ્શન માટે (Column width = 3.6 inch પ્રમાણે)
+                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.9), WD_TAB_ALIGNMENT.LEFT)
+                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.8), WD_TAB_ALIGNMENT.LEFT)
+                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(2.7), WD_TAB_ALIGNMENT.LEFT)
             elif tabs_count == 1: 
-                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.6), WD_TAB_ALIGNMENT.LEFT)
+                # ૨x૨ ઓપ્શન માટે 
+                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.9), WD_TAB_ALIGNMENT.LEFT)
         else:
             paragraph.paragraph_format.space_before = Pt(2)
             paragraph.paragraph_format.space_after = Pt(2)
@@ -264,7 +224,6 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
     cols.set(qn('w:space'), '400')
     cols.set(qn('w:sep'), '1')
     
-    # વોટરમાર્ક અને ફૂટર સેટિંગ (બધા સેક્શનમાં ફરજિયાત)
     for section in doc.sections:
         section.top_margin = Inches(0.3) 
         section.bottom_margin = Inches(0.3)
@@ -280,7 +239,6 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         if os.path.exists('sblogo.png'):
             try:
                 image_part, rel_id = header.part.get_or_add_image('sblogo.png')
-                # XML એરર ન આવે તે માટે સિંગલ લાઈનમાં કોડ
                 watermark_xml = '<w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:pict><v:shape id="Watermark" style="position:absolute;left:0;text-align:left;margin-left:0;margin-top:0;width:300pt;height:300pt;z-index:-251657216;mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin" stroked="f"><v:imagedata r:id="' + rel_id + '" gain="35000f" blacklevel="15000f"/></v:shape></w:pict></w:r>'
                 header_para._p.append(parse_xml(watermark_xml))
             except Exception:
@@ -299,23 +257,29 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
                 
     doc.save(docx_filename)
 
-# --- માર્કડાઉન પાર્સર (Auto-Reset & Solution Logic) ---
-def format_content(raw_text, is_continuous, start_num, end_num):
+# --- માર્કડાઉન પાર્સર (સ્માર્ટ હેડર અને પ્રશ્ન ડિટેક્શન) ---
+def format_content(raw_text, start_num, end_num):
     raw_text = raw_text.replace('**', '')
     raw_text = re.sub(r'\n{3,}', '\n\n', raw_text)
     
     lines = raw_text.split('\n')
     questions = []
     current_q = []
-    q_start_pattern = r'^[\s]*([Qq]\.?\s*\d+[\.\-\)]*|\d+[\.\-\)]+)\s+'
+    
+    # નવું પાવરફુલ પ્રશ્ન લોજિક (હવે Q, q, પ્રશ્ન, Question બધું જ પકડશે)
+    q_start_pattern = r'^[\s]*(?:[Qq]\.?|પ્રશ્ન|Question)?\s*\d+[\.\-\)]+\s+'
     
     for line in lines:
         if not line.strip(): continue
-        if line.strip().startswith('### '):
+        
+        # સ્માર્ટ હેડર ડિટેક્શન (જો તમે ### ન લગાવ્યું હોય તો પણ જાતે પકડી લેશે)
+        is_auto_header = bool(re.match(r'^(ભાગ|વિભાગ|PART|SECTION)\s+[A-Za-z0-9]', line.strip(), re.IGNORECASE))
+        
+        if line.strip().startswith('### ') or is_auto_header:
             if current_q: questions.append("\n".join(current_q))
             questions.append(line.strip())
             current_q = []
-        elif re.match(q_start_pattern, line):
+        elif re.match(q_start_pattern, line, re.IGNORECASE):
             if current_q: questions.append("\n".join(current_q))
             current_q = [line]
         else:
@@ -324,9 +288,8 @@ def format_content(raw_text, is_continuous, start_num, end_num):
         
     formatted_md = ""
     q_num = start_num 
-    q_prefix_pattern = r'^([\s]*([Qq]\.?\s*\d+[\.\-\)]*|\d+[\.\-\)]+)\s*)+'
+    q_prefix_pattern = r'^([\s]*(?:[Qq]\.?|પ્રશ્ન|Question)?\s*\d+[\.\-\)]+\s*)+'
     labels = ['A', 'B', 'C', 'D']
-    
     format_options = True 
     
     for q_block in questions:
@@ -334,7 +297,8 @@ def format_content(raw_text, is_continuous, start_num, end_num):
             q_num = 1 
             format_options = False
             
-        if q_block.startswith('### '):
+        is_auto_header = bool(re.match(r'^(ભાગ|વિભાગ|PART|SECTION)\s+[A-Za-z0-9]', q_block.strip(), re.IGNORECASE))
+        if q_block.startswith('### ') or is_auto_header:
             clean_title = q_block.replace('###', '', 1).strip()
             formatted_md += f"###HEADER### {clean_title}\n\n"
             continue
@@ -346,7 +310,7 @@ def format_content(raw_text, is_continuous, start_num, end_num):
             if len(matches) == 4 and not "સ્ટેપ" in q_block and not "ઉકેલ" in q_block:
                 opts = matches[-4:]
                 q_text = q_block[:opts[0].start()].strip()
-                q_text = re.sub(q_prefix_pattern, '', q_text).strip()
+                q_text = re.sub(q_prefix_pattern, '', q_text, flags=re.IGNORECASE).strip()
                 q_text = re.sub(r'\n\s*\n', '\n', q_text)
                 
                 q_md = f"**Q.{q_num}**‡{q_text}"
@@ -358,21 +322,22 @@ def format_content(raw_text, is_continuous, start_num, end_num):
                     clean_opts.append(f"\\({labels[i]}\\) {opt_content}")
                     
                 lens = [len(o) for o in clean_opts]
-                if max(lens) < 16: opts_md = "‡".join(clean_opts)
-                elif max(lens) < 36: opts_md = f"{clean_opts[0]}‡{clean_opts[1]}\n\n{clean_opts[2]}‡{clean_opts[3]}"
+                # ઓપ્શન ગોઠવવાનું નવું ટાઈટ (Tight) ગણિત
+                if max(lens) < 12: opts_md = "‡".join(clean_opts)
+                elif max(lens) < 30: opts_md = f"{clean_opts[0]}‡{clean_opts[1]}\n\n{clean_opts[2]}‡{clean_opts[3]}"
                 else: opts_md = "\n\n".join(clean_opts)
                     
                 formatted_md += q_md + "\n\n" + opts_md + "\n\n"
             else:
-                clean_q = re.sub(q_prefix_pattern, '', q_block).strip()
-                if clean_q != q_block.strip() and re.match(q_start_pattern, q_block.strip()):
+                clean_q = re.sub(q_prefix_pattern, '', q_block, flags=re.IGNORECASE).strip()
+                if clean_q != q_block.strip() and re.match(q_start_pattern, q_block.strip(), re.IGNORECASE):
                      formatted_md += f"**Q.{q_num}**‡{clean_q}\n\n"
                      q_num += 1
                 else:
                      formatted_md += q_block + "\n\n"
         else:
-            clean_q = re.sub(q_prefix_pattern, '', q_block).strip()
-            if clean_q != q_block.strip() and re.match(q_start_pattern, q_block.strip()):
+            clean_q = re.sub(q_prefix_pattern, '', q_block, flags=re.IGNORECASE).strip()
+            if clean_q != q_block.strip() and re.match(q_start_pattern, q_block.strip(), re.IGNORECASE):
                 formatted_md += f"**Q.{q_num}**‡{clean_q}\n\n"
                 q_num += 1
             else:
@@ -382,22 +347,18 @@ def format_content(raw_text, is_continuous, start_num, end_num):
 
 # --- 4. Streamlit UI (Clean Logo) ---
 missing = [f for f in ['logo.png', 'sblogo.png', 'footer.png'] if not os.path.exists(f)]
-if missing:
-    st.error(f"⚠️ ચેતવણી: આ ઈમેજ મિસિંગ છે: **{', '.join(missing)}**. પ્લીઝ અપલોડ કરો!")
+if missing: st.error(f"⚠️ ચેતવણી: આ ઈમેજ મિસિંગ છે: **{', '.join(missing)}**. પ્લીઝ અપલોડ કરો!")
 
 col_logo1, col_logo2, col_logo3 = st.columns([2, 1, 2])
 with col_logo2:
-    if os.path.exists('logo.png'):
-        st.image("logo.png", use_container_width=True) 
+    if os.path.exists('logo.png'): st.image("logo.png", use_container_width=True) 
 
 st.markdown("<h1 class='main-title'>Question Paper Generator</h1>", unsafe_allow_html=True)
 st.markdown("<div class='subtitle-badge'><span>Made by Yug Ghanshyam Padmani</span></div>", unsafe_allow_html=True)
 
 col_h1, col_h2 = st.columns(2)
-with col_h1:
-    header_left = st.text_area("૧. ડાબી બાજુ (MCQ / Medium):", "MCQ\nENGLISH MEDIUM", height=120)
-with col_h2:
-    header_center = st.text_area("૨. વચ્ચેનું ટાઈટલ (5 લાઈન):", "STD 11 SCIENCE\nMATHS\n40 MARKS\nJEE MAIN\nDate 13/08/26", height=120)
+with col_h1: header_left = st.text_area("૧. ડાબી બાજુ (MCQ / Medium):", "MCQ\nENGLISH MEDIUM", height=120)
+with col_h2: header_center = st.text_area("૨. વચ્ચેનું ટાઈટલ (5 લાઈન):", "STD 11 SCIENCE\nMATHS\n40 MARKS\nJEE MAIN\nDate 13/08/26", height=120)
 
 st.divider()
 
@@ -409,11 +370,11 @@ with col1:
     font_size = st.number_input("ફોન્ટ સાઈઝ:", min_value=8, max_value=20, value=10)
     start_num = st.number_input("પ્રશ્ન ક્યાંથી શરૂ કરવો છે?", min_value=1, value=1)
     end_num = st.number_input("ક્યાં પૂરા કરવા છે? (0 એટલે બધા)", min_value=0, value=0)
-    is_continuous = st.checkbox("પ્રશ્નોના નંબર સળંગ રાખવા છે?", value=True)
+    st.caption("નોંધ: એન્ડ નંબર પૂરો થશે એટલે સોલ્યુશન માટે નંબર ઓટોમેટિક ૧ થી શરૂ થશે અને ઓપ્શન સેટિંગ બંધ થઈ જશે.")
 
 with col2:
     st.markdown("### ✍️ પ્રશ્નો પેસ્ટ કરો")
-    user_input = st.text_area("ડાર્ક બ્લુ ટાઇટલ મૂકવા આગળ ### લખો (દા.ત. ### Section A):", height=350)
+    user_input = st.text_area("પ્રશ્નો પેસ્ટ કરો (હવે વિભાગ A, PART B વગેરેને જાતે જ ટાઇટલ બનાવી દેશે):", height=350)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -425,23 +386,18 @@ if not shutil.which("libreoffice"):
             st.success("✅ ઇન્સ્ટોલ થઈ ગયું! હવે તમે PDF બનાવી શકશો.")
 
 if st.button("🚀 વર્ડ અને PDF ફાઇલ જનરેટ કરો"):
-    if not file_name.strip():
-        st.error("⚠️ ભૂલ: 'ફાઈલનું નામ' ખાલી છે! સેટિંગ્સમાં જઈને નામ લખો.")
-    elif not user_input.strip():
-        st.error("⚠️ ભૂલ: પ્રશ્નોનું બોક્સ ખાલી છે!")
+    if not file_name.strip(): st.error("⚠️ ભૂલ: 'ફાઈલનું નામ' ખાલી છે! સેટિંગ્સમાં જઈને નામ લખો.")
+    elif not user_input.strip(): st.error("⚠️ ભૂલ: પ્રશ્નોનું બોક્સ ખાલી છે!")
     else:
         with st.spinner("તમારું પેપર બની રહ્યું છે... પ્લીઝ વેઇટ ⏳"):
-            processed_md = format_content(user_input, is_continuous, start_num, end_num)
-            with open("temp.md", "w", encoding="utf-8") as f:
-                f.write(processed_md)
+            processed_md = format_content(user_input, start_num, end_num)
+            with open("temp.md", "w", encoding="utf-8") as f: f.write(processed_md)
                 
             try:
                 subprocess.run(["pandoc", "temp.md", "-o", "temp.docx"], check=True)
                 set_formatting_and_margins("temp.docx", font_size, font_name, header_left, header_center)
-                
                 final_file = f"{file_name}.docx"
                 shutil.move("temp.docx", final_file)
-                
                 st.success("✅ તમારું પેપર સફળતાપૂર્વક બની ગયું છે!")
                 
                 col_d1, col_d2 = st.columns(2)
@@ -456,10 +412,7 @@ if st.button("🚀 વર્ડ અને PDF ફાઇલ જનરેટ ક�
                             pdf_file = final_file.replace('.docx', '.pdf')
                             with open(pdf_file, "rb") as p_file:
                                 st.download_button("📕 PDF ફાઇલ ડાઉનલોડ કરો", p_file, file_name=pdf_file, mime="application/pdf")
-                        except Exception as e:
-                            st.error(f"⚠️ PDF કન્વર્ટ કરવામાં ભૂલ આવી: {e}")
-                    else:
-                        st.error("⚠️ PDF સોફ્ટવેર નથી. પ્લીઝ ઉપર આપેલું 'ઇન્સ્ટોલ' બટન દબાવો.")
+                        except Exception as e: st.error(f"⚠️ PDF કન્વર્ટ કરવામાં ભૂલ આવી: {e}")
+                    else: st.error("⚠️ PDF સોફ્ટવેર નથી. પ્લીઝ ઉપર આપેલું 'ઇન્સ્ટોલ' બટન દબાવો.")
                         
-            except Exception as e:
-                st.error(f"Error: {e}")
+            except Exception as e: st.error(f"Error: {e}")
