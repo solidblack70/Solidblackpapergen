@@ -25,13 +25,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- XML Tools ---
-def set_cell_border(border_el, val='single', sz='12', space='0', color='000000'):
-    border_el.set(qn('w:val'), val)
-    border_el.set(qn('w:sz'), sz)
-    border_el.set(qn('w:space'), space)
-    border_el.set(qn('w:color'), color)
-
+# --- XML Tools (Section Breaks & Borders) ---
 def insert_continuous_section_break(paragraph, num_cols):
     pPr = paragraph._element.get_or_add_pPr()
     sectPr = OxmlElement('w:sectPr')
@@ -52,7 +46,7 @@ def insert_continuous_section_break(paragraph, num_cols):
     sectPr.append(cols_el)
     pPr.append(sectPr)
 
-# --- હેડર ડિઝાઇન (પર્ફેક્ટ માપ સાથે) ---
+# --- હેડર ડિઝાઇન (પર્ફેક્ટ 7.27 ઈંચ માપ સાથે) ---
 def insert_header_table(doc, header_left, header_center):
     h_font = "Times New Roman"
     table = doc.add_table(rows=1, cols=3)
@@ -60,11 +54,12 @@ def insert_header_table(doc, header_left, header_center):
     first_para = doc.paragraphs[0]._p
     first_para.addprevious(table._tbl)
     
-    # લોગો ન કપાય અને જમણો લોગો ખૂણામાં જાય તે માટે કડક સાઈઝ
+    # EXACT માપ (લોગો જમણા ખૂણે જશે અને બોક્સ નહિ કપાય)
     table.columns[0].width = Inches(1.8)
-    table.columns[1].width = Inches(3.9) 
+    table.columns[1].width = Inches(4.17) 
     table.columns[2].width = Inches(1.3)
     
+    # 1. ડાબી બાજુ
     left_cell = table.cell(0, 0)
     p_logo_left = left_cell.paragraphs[0]
     p_logo_left.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -74,14 +69,17 @@ def insert_header_table(doc, header_left, header_center):
     if not lines: lines = ["JEE MAIN", "GUJARATI MEDIUM"]
     if len(lines) == 1: lines.append(" ")
     
+    # ગ્રે બોક્સ (100% કડક બોર્ડર સાથે)
     nested_table = left_cell.add_table(rows=2, cols=1)
+    tblPr = nested_table._tbl.tblPr
+    tblW = OxmlElement('w:tblW', {qn('w:w'): '5000', qn('w:type'): 'pct'}) # 100% width
+    tblPr.append(tblW)
+    
     tblBorders = OxmlElement('w:tblBorders')
     for b_name in ['top', 'left', 'bottom', 'right', 'insideH']:
-        b_el = OxmlElement(f'w:{b_name}')
-        sz = '24' if b_name == 'insideH' else '12' 
-        set_cell_border(b_el, sz=sz)
+        b_el = OxmlElement(f'w:{b_name}', {qn('w:val'): 'single', qn('w:sz'): '12', qn('w:space'): '0', qn('w:color'): '000000'})
         tblBorders.append(b_el)
-    nested_table._tbl.tblPr.append(tblBorders)
+    tblPr.append(tblBorders)
     
     for r_idx in range(2):
         n_cell = nested_table.cell(r_idx, 0)
@@ -105,6 +103,7 @@ def insert_header_table(doc, header_left, header_center):
         n_run.font.bold = True
         n_run.font.size = Pt(14) if r_idx == 0 else Pt(10)
     
+    # 2. વચ્ચેનું ટાઇટલ
     center_cell = table.cell(0, 1)
     p_center = center_cell.paragraphs[0]
     p_center.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -113,16 +112,18 @@ def insert_header_table(doc, header_left, header_center):
         r = p_center.add_run(line)
         r.font.name = h_font
         r.font.bold = True
-        if i == 0: r.font.size = Pt(16)  # ટાઇટલ નાનું કર્યું      
-        elif i == 1: r.font.size = Pt(14)     
-        else: r.font.size = Pt(12)            
+        if i == 0: r.font.size = Pt(18)       
+        elif i == 1: r.font.size = Pt(16)     
+        else: r.font.size = Pt(14)            
         if i < len(c_lines) - 1: p_center.add_run('\n')
             
+    # 3. જમણી બાજુ (Right Align - એકદમ ખૂણામાં)
     right_cell = table.cell(0, 2)
     p_right = right_cell.paragraphs[0]
     p_right.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     if os.path.exists('sblogo.png'): p_right.add_run().add_picture('sblogo.png', width=Inches(1.1))
 
+    # હેડરની નીચેની લાઈન
     p_line = doc.add_paragraph()
     table._tbl.addnext(p_line._p)
     pPr = p_line._element.get_or_add_pPr()
@@ -133,11 +134,12 @@ def insert_header_table(doc, header_left, header_center):
     
     insert_continuous_section_break(p_line, 1)
 
-# --- વર્ડ ફાઈલ ફોર્મેટિંગ ---
+# --- વર્ડ ફાઈલ ફોર્મેટિંગ (બુલેટિન સિસ્ટમ સાફ કરવાનું મશીન) ---
 def set_formatting_and_margins(docx_filename, font_size, font_name, header_left, header_center):
     doc = Document(docx_filename)
     insert_header_table(doc, header_left, header_center)
 
+    # નકામા ફકરા ડિલીટ
     for paragraph in list(doc.paragraphs):
         if not paragraph.text.strip():
             p = paragraph._element
@@ -147,7 +149,14 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             
     paragraphs = doc.paragraphs
     for i, paragraph in enumerate(paragraphs):
-        if paragraph.style.name.startswith('List'): paragraph.style = doc.styles['Normal']
+        
+        # બ્રહ્માસ્ત્ર: વર્ડની બુલેટિન (Auto-List) સિસ્ટમ કાયમ માટે ડિલીટ કરો!
+        paragraph.style = doc.styles['Normal']
+        pPr = paragraph._element.get_or_add_pPr()
+        numPr = pPr.numPr
+        if numPr is not None:
+            pPr.remove(numPr)
+            
         for run in paragraph.runs:
             if '‡' in run.text: run.text = run.text.replace('‡', '\t')
                 
@@ -174,35 +183,36 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             run.font.name = "Times New Roman"
             continue
 
-        # પ્રશ્નો (Q.1 ફોર્મેટ)
+        # પ્રશ્નો
         if re.match(r'^Q\.\d+', text):
-            paragraph.paragraph_format.left_indent = Inches(0.35)
-            paragraph.paragraph_format.first_line_indent = Inches(-0.35)
-            paragraph.paragraph_format.space_before = Pt(6)
-            paragraph.paragraph_format.space_after = Pt(2) 
+            paragraph.paragraph_format.left_indent = Inches(0.25)
+            paragraph.paragraph_format.first_line_indent = Inches(-0.25)
+            paragraph.paragraph_format.space_before = Pt(8)
+            paragraph.paragraph_format.space_after = Pt(4) 
             paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             paragraph.paragraph_format.tab_stops.clear_all()
-            paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.35), WD_TAB_ALIGNMENT.LEFT)
+            paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.25), WD_TAB_ALIGNMENT.LEFT)
             
-        # ઓપ્શન્સ (નવી લાઈનમાં)
-        elif re.match(r'^\(?[A-Da-d1-4][\)\.]', text) and '\t' in paragraph.text:
-            paragraph.paragraph_format.left_indent = Inches(0.35)
+        # ઓપ્શન્સ (નેચરલ ટેક્સ્ટ - કોઈ બુલેટ નહિ)
+        elif re.match(r'^\(?[A-Da-d][\)\.]', text) and '\t' in paragraph.text:
+            paragraph.paragraph_format.left_indent = Inches(0.25)
             paragraph.paragraph_format.first_line_indent = Inches(0)
-            paragraph.paragraph_format.space_before = Pt(2) 
+            paragraph.paragraph_format.space_before = Pt(0)
             paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
             
             is_last_option = True
             for j in range(i + 1, len(paragraphs)):
                 next_text = paragraphs[j].text.strip()
                 if not next_text: continue
-                if re.match(r'^\(?[A-Da-d1-4][\)\.]', next_text) and '\t' in paragraphs[j].text: 
+                if re.match(r'^\(?[A-Da-d][\)\.]', next_text) and '\t' in paragraphs[j].text: 
                     is_last_option = False
                 break
                 
-            paragraph.paragraph_format.space_after = Pt(8) if is_last_option else Pt(0)
+            paragraph.paragraph_format.space_after = Pt(8) if is_last_option else Pt(2)
             paragraph.paragraph_format.tab_stops.clear_all()
             tabs_count = paragraph.text.count('\t')
             
+            # પર્ફેક્ટ માપ
             if tabs_count == 3: 
                 paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.9), WD_TAB_ALIGNMENT.LEFT)
                 paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.8), WD_TAB_ALIGNMENT.LEFT)
@@ -210,7 +220,6 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             elif tabs_count == 1: 
                 paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.8), WD_TAB_ALIGNMENT.LEFT)
         else:
-            # નોર્મલ લખાણ (Solution ના ફકરા)
             paragraph.paragraph_format.space_before = Pt(4)
             paragraph.paragraph_format.space_after = Pt(4)
             paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
@@ -220,6 +229,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             if paragraph.style.name != "Times New Roman":
                 run.font.name = font_name
                 
+    # 2-કોલમ સેટિંગ
     final_section = doc.sections[-1]
     cols = final_section._sectPr.find(qn('w:cols')) or OxmlElement('w:cols')
     if cols not in final_section._sectPr: final_section._sectPr.append(cols)
@@ -235,6 +245,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         section.header_distance = Inches(0.1)
         section.footer_distance = Inches(0.1)
         
+        # વોટરમાર્ક
         header = section.header
         header.is_linked_to_previous = False
         header_para = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
@@ -246,6 +257,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
                 header_para._p.append(parse_xml(watermark_xml))
             except Exception: pass
             
+        # ફૂટર
         footer = section.footer
         footer.is_linked_to_previous = False
         footer_para = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
@@ -258,11 +270,8 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
                 
     doc.save(docx_filename)
 
-# --- માર્કડાઉન પાર્સર (Old System + Safe Headers) ---
+# --- માર્કડાઉન પાર્સર (1,2,3,4 ને A,B,C,D માં ફેરવવા અને કચરો સાફ કરવા) ---
 def format_content(raw_text, start_num, end_num):
-    raw_text = raw_text.replace('**', '')
-    raw_text = re.sub(r'\n{3,}', '\n\n', raw_text)
-    
     lines = raw_text.split('\n')
     questions = []
     current_q = []
@@ -275,9 +284,7 @@ def format_content(raw_text, start_num, end_num):
             current_q.append("") 
             continue
             
-        # માત્ર આટલા જ શબ્દોથી ટાઇટલ બનશે (જેથી Q.4 ક્યારેય બ્લુ ન થાય)
-        is_auto_header = bool(re.match(r'^(ભાગ|વિભાગ|PART|SECTION|ANSWER KEY|DETAILED SOLUTION|SOLUTION)\b', line_str, re.IGNORECASE))
-        
+        is_auto_header = bool(re.match(r'^(ભાગ|વિભાગ|PART|SECTION)\s+[A-Za-z0-9]', line_str, re.IGNORECASE))
         if line_str.startswith('### ') or is_auto_header:
             if "".join(current_q).strip(): questions.append("\n".join(current_q).strip())
             questions.append(line_str)
@@ -301,49 +308,57 @@ def format_content(raw_text, start_num, end_num):
             q_num = 1 
             format_options = False
             
-        is_auto_header = bool(re.match(r'^(ભાગ|વિભાગ|PART|SECTION|ANSWER KEY|DETAILED SOLUTION|SOLUTION)\b', q_block.strip(), re.IGNORECASE))
+        is_auto_header = bool(re.match(r'^(ભાગ|વિભાગ|PART|SECTION)\s+[A-Za-z0-9]', q_block.strip(), re.IGNORECASE))
         if q_block.startswith('### ') or is_auto_header:
             clean_title = q_block.replace('###', '', 1).strip()
             formatted_md += f"###HEADER### {clean_title}\n\n"
             continue
             
         if format_options:
-            pattern = r'\s*(\([A-Da-d1-4]\)|[A-Da-d1-4]\.)\s*'
-            parts = re.split(pattern, q_block)
+            # 1,2,3,4 અથવા A,B,C,D પકડવાનું કડક લોજિક
+            opt_matches = list(re.finditer(r'\s*(?:\([A-Da-d1-4]\)|[A-Da-d1-4]\.)\s*', q_block))
             
-            if len(parts) >= 9 and not "સ્ટેપ" in q_block and not "ઉકેલ" in q_block:
-                q_text = "".join(parts[:-8]).strip()
+            if len(opt_matches) >= 4 and not "સ્ટેપ" in q_block and not "ઉકેલ" in q_block:
+                opts_spans = opt_matches[-4:] # છેલ્લા 4 જ પકડશે
+                q_text = q_block[:opts_spans[0].start()].strip()
                 
+                # ઓપ્શન્સ ને અલગ કરો
+                opt_A = q_block[opts_spans[0].end():opts_spans[1].start()]
+                opt_B = q_block[opts_spans[1].end():opts_spans[2].start()]
+                opt_C = q_block[opts_spans[2].end():opts_spans[3].start()]
+                opt_D = q_block[opts_spans[3].end():]
+                
+                # સવાલમાંના બધા Enter સાચવો
+                q_text = re.sub(r'\n+', '\n\n', q_text)
                 match = re.match(q_prefix_pattern, q_text, re.IGNORECASE)
                 if match: q_text = q_text[match.end():].strip()
                 
-                q_text = re.sub(r'\n+', '\n\n', q_text)
-                
-                # ઓરિજિનલ Q.1 ફોર્મેટ
                 q_md = f"**Q.{q_num}** {q_text}"
                 q_num += 1
                 
-                opts = [parts[-7].strip(), parts[-5].strip(), parts[-3].strip(), parts[-1].strip()]
+                raw_opts = [opt_A, opt_B, opt_C, opt_D]
                 clean_opts = []
-                for i, opt in enumerate(opts):
-                    opt_content = re.sub(r'\s+', ' ', opt)
-                    clean_opts.append(f"({labels[i]}) {opt_content}")
+                for i, opt in enumerate(raw_opts):
+                    # બધો કચરો (Tab, Enter, નકામી સ્પેસ) સાફ કરી નાખશે
+                    opt_content = re.sub(r'[\t\n\r]+', ' ', opt).strip()
+                    # ફરજિયાત (A), (B), (C), (D) માં કન્વર્ટ થશે!
+                    clean_opts.append(f"\\({labels[i]}\\) {opt_content}")
                     
                 lens = [len(o) for o in clean_opts]
                 max_length = max(lens)
                 
-                if max_length <= 16: opts_md = "‡".join(clean_opts) 
-                elif max_length <= 40: opts_md = f"{clean_opts[0]}‡{clean_opts[1]}\n\n{clean_opts[2]}‡{clean_opts[3]}"
-                else: opts_md = "\n\n".join(clean_opts) 
+                # ઓપ્શન ગોઠવવાનું ઢીલું માપ
+                if max_length <= 25: opts_md = "‡".join(clean_opts) # 1 લાઈન
+                elif max_length <= 45: opts_md = f"{clean_opts[0]}‡{clean_opts[1]}\n\n{clean_opts[2]}‡{clean_opts[3]}" # 2x2
+                else: opts_md = "\n\n".join(clean_opts) # 4 લાઈન
                 
-                # \n\n થી ઓપ્શન ફરજિયાત નવી લાઈનમાં આવશે (Q.1 ના મોઢા પર નહિ)
                 formatted_md += q_md + "\n\n" + opts_md + "\n\n"
             else:
                 clean_q = q_block
                 match = re.match(q_prefix_pattern, clean_q, re.IGNORECASE)
                 if match: 
                     clean_q = clean_q[match.end():].strip()
-                    clean_q = re.sub(r'\n+', '\n\n', clean_q) 
+                    clean_q = re.sub(r'\n+', '\n\n', clean_q)
                     formatted_md += f"**Q.{q_num}** {clean_q}\n\n"
                     q_num += 1
                 else:
@@ -363,7 +378,7 @@ def format_content(raw_text, start_num, end_num):
                  
     return formatted_md
 
-# --- 4. Streamlit UI ---
+# --- 4. Streamlit UI (Clean Logo) ---
 missing = [f for f in ['logo.png', 'sblogo.png', 'footer.png'] if not os.path.exists(f)]
 if missing: st.error(f"⚠️ ચેતવણી: આ ઈમેજ મિસિંગ છે: **{', '.join(missing)}**. પ્લીઝ અપલોડ કરો!")
 
@@ -392,7 +407,7 @@ with col1:
 
 with col2:
     st.markdown("### ✍️ પ્રશ્નો પેસ્ટ કરો")
-    user_input = st.text_area("પ્રશ્નો પેસ્ટ કરો (હવે વિભાગ A, PART B, Solution વગેરેને જાતે જ ટાઇટલ બનાવી દેશે):", height=350)
+    user_input = st.text_area("પ્રશ્નો પેસ્ટ કરો (1,2,3,4 ઓપ્શન હશે તો પણ A,B,C,D માં ફેરવાઈ જશે):", height=350)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
