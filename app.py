@@ -5,7 +5,6 @@ import shutil
 import os
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor
-from docx.enum.section import WD_SECTION
 from docx.enum.text import WD_TAB_ALIGNMENT, WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement, parse_xml
@@ -26,6 +25,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# --- XML Tools ---
 def set_cell_border(border_el, val='single', sz='12', space='0', color='000000'):
     border_el.set(qn('w:val'), val)
     border_el.set(qn('w:sz'), sz)
@@ -52,23 +52,27 @@ def insert_continuous_section_break(paragraph, num_cols):
     sectPr.append(cols_el)
     pPr.append(sectPr)
 
+# --- હેડર ડિઝાઇન ---
 def insert_header_table(doc, header_left, header_center):
     h_font = "Times New Roman"
     table = doc.add_table(rows=1, cols=3)
     table.autofit = False
     first_para = doc.paragraphs[0]._p
     first_para.addprevious(table._tbl)
-    table.columns[0].width = Inches(2.4)
-    table.columns[1].width = Inches(3.9) 
-    table.columns[2].width = Inches(1.2)
     
+    # કોલમની સાઇઝ (ફોટા મુજબ)
+    table.columns[0].width = Inches(2.3)
+    table.columns[1].width = Inches(4.1) 
+    table.columns[2].width = Inches(1.1)
+    
+    # 1. ડાબી બાજુ (લોગો અને ગ્રે બોક્સ)
     left_cell = table.cell(0, 0)
     p_logo_left = left_cell.paragraphs[0]
     p_logo_left.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    if os.path.exists('logo.png'): p_logo_left.add_run().add_picture('logo.png', width=Inches(2.4))
+    if os.path.exists('logo.png'): p_logo_left.add_run().add_picture('logo.png', width=Inches(2.3))
         
     lines = header_left.strip().split('\n')
-    if not lines: lines = ["MCQ", "ENGLISH MEDIUM"]
+    if not lines: lines = ["JEE MAIN", "GUJARATI MEDIUM"]
     if len(lines) == 1: lines.append(" ")
     
     nested_table = left_cell.add_table(rows=2, cols=1)
@@ -85,20 +89,26 @@ def insert_header_table(doc, header_left, header_center):
         tcPr = n_cell._tc.get_or_add_tcPr()
         shd = OxmlElement('w:shd', {qn('w:val'): 'clear', qn('w:color'): 'auto', qn('w:fill'): 'D9D9D9'})
         tcPr.append(shd)
+        
+        # Zero Spacing (No white gaps)
         tcMar = OxmlElement('w:tcMar')
         for m in ['top', 'left', 'bottom', 'right']:
             el = OxmlElement(f'w:{m}', {qn('w:w'): '0', qn('w:type'): 'dxa'})
             tcMar.append(el)
         tcPr.append(tcMar)
+        
         np = n_cell.paragraphs[0]
         np.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        np.paragraph_format.space_before = Pt(0)
-        np.paragraph_format.space_after = Pt(0)
+        np.paragraph_format.space_before = Pt(2)
+        np.paragraph_format.space_after = Pt(2)
+        
         n_run = np.add_run(lines[r_idx])
-        n_run.font.name = h_font
+        n_run.font.name = "Arial"
         n_run.font.bold = True
-        n_run.font.size = Pt(14)
+        # પહેલી લાઈન મોટી, બીજી નાની
+        n_run.font.size = Pt(16) if r_idx == 0 else Pt(10)
     
+    # 2. વચ્ચેનું ટાઇટલ (5 લાઈન)
     center_cell = table.cell(0, 1)
     p_center = center_cell.paragraphs[0]
     p_center.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -109,16 +119,18 @@ def insert_header_table(doc, header_left, header_center):
         r.font.bold = True
         if i == 0: r.font.size = Pt(22)       
         elif i == 1: r.font.size = Pt(18)     
-        elif i == 2: r.font.size = Pt(18)     
+        elif i == 2: r.font.size = Pt(16)     
         elif i == 3: r.font.size = Pt(14)     
-        else: r.font.size = Pt(16)            
+        else: r.font.size = Pt(14)            
         if i < len(c_lines) - 1: p_center.add_run('\n')
             
+    # 3. જમણી બાજુ (રાઉન્ડ લોગો)
     right_cell = table.cell(0, 2)
     p_right = right_cell.paragraphs[0]
     p_right.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    if os.path.exists('sblogo.png'): p_right.add_run().add_picture('sblogo.png', width=Inches(1.2))
+    if os.path.exists('sblogo.png'): p_right.add_run().add_picture('sblogo.png', width=Inches(1.1))
 
+    # હેડરની નીચે પાતળી બ્લેક લાઈન
     p_line = doc.add_paragraph()
     table._tbl.addnext(p_line._p)
     pPr = p_line._element.get_or_add_pPr()
@@ -127,8 +139,10 @@ def insert_header_table(doc, header_left, header_center):
     pBdr.append(bottom)
     pPr.append(pBdr)
     
+    # આખું હેડર 1-કોલમમાં પેક
     insert_continuous_section_break(p_line, 1)
 
+# --- વર્ડ ફાઈલ ફોર્મેટિંગ ---
 def set_formatting_and_margins(docx_filename, font_size, font_name, header_left, header_center):
     doc = Document(docx_filename)
     insert_header_table(doc, header_left, header_center)
@@ -149,7 +163,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         text = paragraph.text.strip()
         if not text: continue
         
-        # 1-Column ડાર્ક બ્લુ ટાઇટલ
+        # 1-Column ડાર્ક બ્લુ ટાઇટલ (### અથવા વિભાગ/PART)
         if '###HEADER###' in text:
             clean_title = text.replace('###HEADER###', '').strip()
             if i > 0: insert_continuous_section_break(paragraphs[i-1], 2)
@@ -157,8 +171,8 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             
             paragraph.text = ""
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            paragraph.paragraph_format.space_before = Pt(12)
-            paragraph.paragraph_format.space_after = Pt(12)
+            paragraph.paragraph_format.space_before = Pt(8)
+            paragraph.paragraph_format.space_after = Pt(8)
             shd = OxmlElement('w:shd', {qn('w:val'): 'clear', qn('w:color'): 'auto', qn('w:fill'): '000080'})
             paragraph._element.get_or_add_pPr().append(shd)
             
@@ -169,22 +183,22 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             run.font.name = "Times New Roman"
             continue
 
-        # પ્રશ્નો (Q.25 કે પ્રશ્ન 25 ગમે તે હોય)
+        # પ્રશ્નો
         if re.match(r'^Q\.\d+', text):
             paragraph.paragraph_format.left_indent = Inches(0.35)
             paragraph.paragraph_format.first_line_indent = Inches(-0.35)
-            paragraph.paragraph_format.space_before = Pt(6)
+            paragraph.paragraph_format.space_before = Pt(8)
             paragraph.paragraph_format.space_after = Pt(2) 
             paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             paragraph.paragraph_format.tab_stops.clear_all()
             paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.35), WD_TAB_ALIGNMENT.LEFT)
             
-        # ઓપ્શન્સ (Tabs નું નવું ફિક્સ ગણિત)
+        # ઓપ્શન્સ (નવું ફિક્સ Tab ગણિત)
         elif re.match(r'^\(?[A-Da-d1-4][\)\.]', text) and '\t' in paragraph.text:
             paragraph.paragraph_format.left_indent = Inches(0.35)
             paragraph.paragraph_format.first_line_indent = Inches(0)
             paragraph.paragraph_format.space_before = Pt(0)
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT # ઓપ્શન હંમેશા LEFT હોય
             
             is_last_option = True
             for j in range(i + 1, len(paragraphs)):
@@ -199,13 +213,13 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             tabs_count = paragraph.text.count('\t')
             
             if tabs_count == 3: 
-                # ૧ લાઈનમાં ૪ ઓપ્શન માટે (Column width = 3.6 inch પ્રમાણે)
-                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.9), WD_TAB_ALIGNMENT.LEFT)
-                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.8), WD_TAB_ALIGNMENT.LEFT)
-                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(2.7), WD_TAB_ALIGNMENT.LEFT)
+                # ૧ લાઈનમાં ૪ ઓપ્શન માટે (Fixed)
+                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.85), WD_TAB_ALIGNMENT.LEFT)
+                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.7), WD_TAB_ALIGNMENT.LEFT)
+                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(2.55), WD_TAB_ALIGNMENT.LEFT)
             elif tabs_count == 1: 
-                # ૨x૨ ઓપ્શન માટે 
-                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.9), WD_TAB_ALIGNMENT.LEFT)
+                # ૨x૨ ઓપ્શન માટે (Fixed)
+                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.75), WD_TAB_ALIGNMENT.LEFT)
         else:
             paragraph.paragraph_format.space_before = Pt(2)
             paragraph.paragraph_format.space_after = Pt(2)
@@ -232,6 +246,7 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         section.header_distance = Inches(0.1)
         section.footer_distance = Inches(0.1)
         
+        # વોટરમાર્ક (50% Washed Out)
         header = section.header
         header.is_linked_to_previous = False
         header_para = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
@@ -239,10 +254,9 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         if os.path.exists('sblogo.png'):
             try:
                 image_part, rel_id = header.part.get_or_add_image('sblogo.png')
-                watermark_xml = '<w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:pict><v:shape id="Watermark" style="position:absolute;left:0;text-align:left;margin-left:0;margin-top:0;width:300pt;height:300pt;z-index:-251657216;mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin" stroked="f"><v:imagedata r:id="' + rel_id + '" gain="35000f" blacklevel="15000f"/></v:shape></w:pict></w:r>'
+                watermark_xml = '<w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:pict><v:shape id="Watermark" style="position:absolute;left:0;text-align:left;margin-left:0;margin-top:0;width:350pt;height:350pt;z-index:-251657216;mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin" stroked="f"><v:imagedata r:id="' + rel_id + '" gain="35000f" blacklevel="15000f"/></v:shape></w:pict></w:r>'
                 header_para._p.append(parse_xml(watermark_xml))
-            except Exception:
-                pass
+            except Exception: pass
             
         footer = section.footer
         footer.is_linked_to_previous = False
@@ -252,12 +266,11 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
             try:
                 run = footer_para.add_run()
                 run.add_picture('footer.png', width=Inches(7.5))
-            except Exception:
-                pass
+            except Exception: pass
                 
     doc.save(docx_filename)
 
-# --- માર્કડાઉન પાર્સર (સ્માર્ટ હેડર અને પ્રશ્ન ડિટેક્શન) ---
+# --- માર્કડાઉન પાર્સર (સ્માર્ટ ઓપ્શન લિમિટ્સ) ---
 def format_content(raw_text, start_num, end_num):
     raw_text = raw_text.replace('**', '')
     raw_text = re.sub(r'\n{3,}', '\n\n', raw_text)
@@ -266,15 +279,11 @@ def format_content(raw_text, start_num, end_num):
     questions = []
     current_q = []
     
-    # નવું પાવરફુલ પ્રશ્ન લોજિક (હવે Q, q, પ્રશ્ન, Question બધું જ પકડશે)
     q_start_pattern = r'^[\s]*(?:[Qq]\.?|પ્રશ્ન|Question)?\s*\d+[\.\-\)]+\s+'
     
     for line in lines:
         if not line.strip(): continue
-        
-        # સ્માર્ટ હેડર ડિટેક્શન (જો તમે ### ન લગાવ્યું હોય તો પણ જાતે પકડી લેશે)
         is_auto_header = bool(re.match(r'^(ભાગ|વિભાગ|PART|SECTION)\s+[A-Za-z0-9]', line.strip(), re.IGNORECASE))
-        
         if line.strip().startswith('### ') or is_auto_header:
             if current_q: questions.append("\n".join(current_q))
             questions.append(line.strip())
@@ -322,10 +331,15 @@ def format_content(raw_text, start_num, end_num):
                     clean_opts.append(f"\\({labels[i]}\\) {opt_content}")
                     
                 lens = [len(o) for o in clean_opts]
-                # ઓપ્શન ગોઠવવાનું નવું ટાઈટ (Tight) ગણિત
-                if max(lens) < 12: opts_md = "‡".join(clean_opts)
-                elif max(lens) < 30: opts_md = f"{clean_opts[0]}‡{clean_opts[1]}\n\n{clean_opts[2]}‡{clean_opts[3]}"
-                else: opts_md = "\n\n".join(clean_opts)
+                max_length = max(lens)
+                
+                # નવું કડક ગણિત (માપપટ્ટીવાળું)
+                if max_length <= 14: 
+                    opts_md = "‡".join(clean_opts) # 1 Line
+                elif max_length <= 35: 
+                    opts_md = f"{clean_opts[0]}‡{clean_opts[1]}\n\n{clean_opts[2]}‡{clean_opts[3]}" # 2x2
+                else: 
+                    opts_md = "\n\n".join(clean_opts) # 4 Lines
                     
                 formatted_md += q_md + "\n\n" + opts_md + "\n\n"
             else:
@@ -357,7 +371,7 @@ st.markdown("<h1 class='main-title'>Question Paper Generator</h1>", unsafe_allow
 st.markdown("<div class='subtitle-badge'><span>Made by Yug Ghanshyam Padmani</span></div>", unsafe_allow_html=True)
 
 col_h1, col_h2 = st.columns(2)
-with col_h1: header_left = st.text_area("૧. ડાબી બાજુ (MCQ / Medium):", "MCQ\nENGLISH MEDIUM", height=120)
+with col_h1: header_left = st.text_area("૧. ડાબી બાજુનું ગ્રે બોક્સ (બે લાઈન):", "JEE MAIN\nGUJARATI MEDIUM", height=120)
 with col_h2: header_center = st.text_area("૨. વચ્ચેનું ટાઈટલ (5 લાઈન):", "STD 11 SCIENCE\nMATHS\n40 MARKS\nJEE MAIN\nDate 13/08/26", height=120)
 
 st.divider()
