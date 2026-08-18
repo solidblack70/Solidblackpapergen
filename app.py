@@ -59,7 +59,7 @@ def add_continuous_section_break(paragraph, num_cols):
     
     pPr.append(sectPr)
 
-# --- હેડર ડિઝાઇન (નવું પર્ફેક્ટ લોજિક) ---
+# --- હેડર ડિઝાઇન ---
 def insert_header_table(doc, header_left, header_center):
     h_font = "Times New Roman"
     table = doc.add_table(rows=1, cols=3)
@@ -132,14 +132,22 @@ def insert_header_table(doc, header_left, header_center):
     p_right.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     if os.path.exists('sblogo.png'): p_right.add_run().add_picture('sblogo.png', width=Inches(1.1))
 
-    p_break = doc.add_paragraph()
-    table._tbl.addnext(p_break._p)
-    add_continuous_section_break(p_break, 1)
+    # હેડરની નીચેની બ્લેક લાઈન (અહીંથી આપણે સેક્શન બ્રેક કાઢી નાખ્યો છે જેથી પેજ ના છૂટે)
+    p_line = doc.add_paragraph()
+    table._tbl.addnext(p_line._p)
+    pPr = p_line._element.get_or_add_pPr()
+    pBdr = OxmlElement('w:pBdr')
+    bottom = OxmlElement('w:bottom', {qn('w:val'): 'single', qn('w:sz'): '6', qn('w:space'): '1', qn('w:color'): '000000'})
+    pBdr.append(bottom)
+    pPr.append(pBdr)
+    
+    return p_line
 
-# --- વર્ડ ફાઈલ ફોર્મેટિંગ (તમારું MCQ લોજિક + બુલેટ રિમૂવર) ---
+# --- વર્ડ ફાઈલ ફોર્મેટિંગ (કોરા પેજનું બ્રહ્માસ્ત્ર ફિક્સ) ---
 def set_formatting_and_margins(docx_filename, font_size, font_name, header_left, header_center):
     doc = Document(docx_filename)
     
+    # ડિફોલ્ટ આખું પેપર 2-કોલમ સેટ કરો
     for section in doc.sections:
         section.top_margin = Inches(0.3)
         section.bottom_margin = Inches(0.3)
@@ -153,96 +161,117 @@ def set_formatting_and_margins(docx_filename, font_size, font_name, header_left,
         cols.set(qn('w:space'), '400')   
         cols.set(qn('w:sep'), '1')       
     
-    insert_header_table(doc, header_left, header_center)
+    header_line_para = insert_header_table(doc, header_left, header_center)
 
+    # નકામા ફકરા ડિલીટ કરો (હેડરની લાઈન સિવાય)
     for paragraph in list(doc.paragraphs):
+        if paragraph._element == header_line_para._element:
+            continue
         if not paragraph.text.strip():
             p = paragraph._element
-            p.getparent().remove(p)
+            if p.getparent() is not None:
+                p.getparent().remove(p)
             paragraph._p = paragraph._element = None
+            
+    # જીવંત ફકરાઓનું નવું લિસ્ટ
+    paragraphs = [p for p in doc.paragraphs if p.text.strip() or p._element == header_line_para._element]
+    
+    is_one_col = True # શરૂઆતમાં હેડર 1-કોલમમાં હોય છે
+    
+    for i, paragraph in enumerate(paragraphs):
+        if paragraph._element == header_line_para._element:
             continue
             
-    paragraphs = doc.paragraphs
-    for i, paragraph in enumerate(paragraphs):
-        # બ્રહ્માસ્ત્ર: ઓટો-બુલેટ (Auto-List) કાયમ માટે બંધ કરે છે
+        # બ્રહ્માસ્ત્ર: ઓટો-બુલેટ કાયમ માટે બંધ
         paragraph.style = doc.styles['Normal']
         pPr = paragraph._element.get_or_add_pPr()
-        numPr = pPr.numPr
-        if numPr is not None:
-            pPr.remove(numPr)
+        numPrs = pPr.findall(qn('w:numPr'))
+        for n in numPrs: pPr.remove(n)
             
         for run in paragraph.runs:
             if '‡' in run.text:
                 run.text = run.text.replace('‡', '\t')
                 
         text = paragraph.text.strip()
-        if not text: continue
         
+        # 1-Column ડાર્ક બ્લુ ટાઇટલ
         if '###HEADER###' in text:
             clean_title = text.replace('###HEADER###', '').strip()
-            if i > 0: add_continuous_section_break(paragraphs[i-1], 2)
+            
+            # જો અગાઉના પ્રશ્નો 2-કોલમમાં ચાલતા હતા, તો તેને ત્યાં પૂરા કરો
+            if i > 0 and not is_one_col:
+                prev_p = paragraphs[i-1]
+                if prev_p._element == header_line_para._element and i > 1:
+                    prev_p = paragraphs[i-2]
+                add_continuous_section_break(prev_p, 2)
+            
+            # આ ટાઇટલને 1-કોલમમાં રાખો
             add_continuous_section_break(paragraph, 1)
+            is_one_col = True
             
             paragraph.text = ""
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
             paragraph.paragraph_format.space_before = Pt(12)
             paragraph.paragraph_format.space_after = Pt(12)
             
-            shd = OxmlElement('w:shd')
-            shd.set(qn('w:val'), 'clear')
-            shd.set(qn('w:color'), 'auto')
-            shd.set(qn('w:fill'), '1F4E79')
+            shd = OxmlElement('w:shd', {qn('w:val'): 'clear', qn('w:color'): 'auto', qn('w:fill'): '1F4E79'})
             paragraph._element.get_or_add_pPr().append(shd)
             
             run = paragraph.add_run(clean_title)
             run.font.color.rgb = RGBColor(255, 255, 255)
             run.font.bold = True
             run.font.size = Pt(font_size + 4)
-            run.font.name = font_name
+            run.font.name = "Times New Roman"
             continue
 
-        # તમારું પોતાનું જ MCQ ફોર્મેટિંગ લોજિક
-        if re.match(r'^Q\.\d+', text):
-            paragraph.paragraph_format.left_indent = Inches(0.35)
-            paragraph.paragraph_format.first_line_indent = Inches(-0.35)
-            paragraph.paragraph_format.space_before = Pt(6)
-            paragraph.paragraph_format.space_after = Pt(2) 
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            paragraph.paragraph_format.tab_stops.clear_all()
-            paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.35), WD_TAB_ALIGNMENT.LEFT)
-            
-        elif re.match(r'^\(?[A-D][\)\.]', text):
-            paragraph.paragraph_format.left_indent = Inches(0.35)
-            paragraph.paragraph_format.first_line_indent = Inches(0)
-            paragraph.paragraph_format.space_before = Pt(0)
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            
-            is_last_option = True
-            for j in range(i + 1, len(paragraphs)):
-                next_text = paragraphs[j].text.strip()
-                if not next_text: continue
-                if re.match(r'^\(?[A-D][\)\.]', next_text):
-                    is_last_option = False
-                break
-                
-            paragraph.paragraph_format.space_after = Pt(8) if is_last_option else Pt(0)
-            paragraph.paragraph_format.tab_stops.clear_all()
-            tabs_count = paragraph.text.count('\t')
-            
-            if tabs_count == 3: 
-                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.8), WD_TAB_ALIGNMENT.LEFT)
-                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.6), WD_TAB_ALIGNMENT.LEFT)
-                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(2.4), WD_TAB_ALIGNMENT.LEFT)
-            elif tabs_count == 1: 
-                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.6), WD_TAB_ALIGNMENT.LEFT)
         else:
-            paragraph.paragraph_format.space_before = Pt(2)
-            paragraph.paragraph_format.space_after = Pt(2)
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            
-        for run in paragraph.runs:
-            run.font.size = Pt(font_size)
-            run.font.name = font_name
+            # જો આ પહેલો જ પ્રશ્ન હોય (ટાઇટલ વગર), તો હેડરની લાઈન પછી 1-કોલમ બ્રેક મારો
+            if is_one_col:
+                add_continuous_section_break(header_line_para, 1)
+                is_one_col = False
+
+            # તમારું પોતાનું જ MCQ ફોર્મેટિંગ લોજિક
+            if re.match(r'^Q\.\d+', text):
+                paragraph.paragraph_format.left_indent = Inches(0.35)
+                paragraph.paragraph_format.first_line_indent = Inches(-0.35)
+                paragraph.paragraph_format.space_before = Pt(6)
+                paragraph.paragraph_format.space_after = Pt(2) 
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                paragraph.paragraph_format.tab_stops.clear_all()
+                paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.35), WD_TAB_ALIGNMENT.LEFT)
+                
+            elif re.match(r'^\(?[A-D][\)\.]', text):
+                paragraph.paragraph_format.left_indent = Inches(0.35)
+                paragraph.paragraph_format.first_line_indent = Inches(0)
+                paragraph.paragraph_format.space_before = Pt(0)
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                
+                is_last_option = True
+                for j in range(i + 1, len(paragraphs)):
+                    next_text = paragraphs[j].text.strip()
+                    if not next_text: continue
+                    if re.match(r'^\(?[A-D][\)\.]', next_text):
+                        is_last_option = False
+                    break
+                    
+                paragraph.paragraph_format.space_after = Pt(8) if is_last_option else Pt(0)
+                paragraph.paragraph_format.tab_stops.clear_all()
+                tabs_count = paragraph.text.count('\t')
+                
+                if tabs_count == 3: 
+                    paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(0.8), WD_TAB_ALIGNMENT.LEFT)
+                    paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.6), WD_TAB_ALIGNMENT.LEFT)
+                    paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(2.4), WD_TAB_ALIGNMENT.LEFT)
+                elif tabs_count == 1: 
+                    paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(1.6), WD_TAB_ALIGNMENT.LEFT)
+            else:
+                paragraph.paragraph_format.space_before = Pt(2)
+                paragraph.paragraph_format.space_after = Pt(2)
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                
+            for run in paragraph.runs:
+                run.font.size = Pt(font_size)
+                run.font.name = font_name
             
     # નવું ફૂટર અને વોટરમાર્ક લોજિક 
     for section in doc.sections:
